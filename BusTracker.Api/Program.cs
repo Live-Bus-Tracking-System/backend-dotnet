@@ -1,4 +1,7 @@
 
+using BusTracker.Application;
+using BusTracker.Infrastructure;
+
 namespace BusTracker.Api
 {
     public class Program
@@ -14,6 +17,9 @@ namespace BusTracker.Api
             //builder.Services.AddOpenApi();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            builder.Services.AddApplicationServices();
+            builder.Services.AddInfrastructureServices(builder.Configuration);
 
             var app = builder.Build();
 
