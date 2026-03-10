@@ -12,5 +12,7 @@ namespace BusTracker.Domain.Entities
         public string? Name { get; set; }
         public int? Capacity { get; set; }
         public bool IsActive { get; set; } = true;
+
+        public ICollection<ActiveAssignment> AssignmentHistory { get; set; } = new List<ActiveAssignment>();
     }
 }

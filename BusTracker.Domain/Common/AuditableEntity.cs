@@ -7,5 +7,9 @@
 
         public DateTime? LastModifiedAtUtc { get; set; }
         public string? LastModifiedBy { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAtUtc { get; set; }
+        public string? DeletedBy { get; set; }
     }
 }

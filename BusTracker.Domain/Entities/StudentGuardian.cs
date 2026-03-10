@@ -1,4 +1,5 @@
 ﻿using BusTracker.Domain.Common;
+using BusTracker.Domain.Enums;
 
 namespace BusTracker.Domain.Entities
 {
@@ -7,12 +8,16 @@ namespace BusTracker.Domain.Entities
         public Guid StudentId { get; set; }
         public Student? Student { get; set; }
 
-        public string GuardianId { get; set; } = string.Empty;
-        public ApplicationUser? Guardian { get; set; }
+        public string? UserId { get; set; }
+        public ApplicationUser? User { get; set; }
 
-        public bool IsApproved { get; set; } = false;
+        public string GuardianName { get; set; } = string.Empty;
+        public string? NormalizedEmail { get; set; }
+        public string NormalizedPhoneNumber { get; set; } = string.Empty;
+        public string? Relationship { get; set; }
 
-        // Why it was approved/rejected (e.g., "Auto-matched via PIN" or "Manual Approval")
-        public string? ApprovalNotes { get; set; }
+        public ClaimStatus Status { get; set; } = ClaimStatus.Pending;
+
+        public string? SystemNotes { get; set; }
     }
 }

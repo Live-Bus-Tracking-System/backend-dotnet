@@ -6,8 +6,8 @@ namespace BusTracker.Domain.Entities
     {
         public string FullName { get; set; } = string.Empty;
         public Guid? OrganizationId { get; set; }
-
-        // Navigation Property for Entity Framework
         public Organization? Organization { get; set; }
+
+        public ICollection<StudentGuardian> StudentLinks { get; set; } = new List<StudentGuardian>();
     }
 }
