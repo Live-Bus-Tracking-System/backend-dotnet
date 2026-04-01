@@ -14,5 +14,7 @@ namespace BusTracker.Domain.Entities
         public bool IsActive { get; set; } = true;
 
         public ICollection<ActiveAssignment> AssignmentHistory { get; set; } = new List<ActiveAssignment>();
+
+        public ICollection<VehicleExpectedRoute> ExpectedRoutes { get; set; } = new List<VehicleExpectedRoute>();
     }
 }

@@ -1,4 +1,4 @@
-﻿using BusTracker.Domain.Common;
+using BusTracker.Domain.Common;
 using BusTracker.Domain.Enums;
 using System.Linq;
 
@@ -6,12 +6,18 @@ namespace BusTracker.Domain.Entities
 {
     public class Route : AuditableEntity
     {
-        public Guid OrganizationId { get; set; }
+        public Guid? OrganizationId { get; set; }
         public Organization? Organization { get; set; }
 
         public string? RouteNumber { get; set; } = string.Empty;
 
         public bool IsPublic { get; set; } = true;
+
+        public bool IsGoverned { get; set; } = false;
+        public DataOrigin DataOrigin { get; set; } = DataOrigin.Manual;
+
+        // OSRM encoded polyline string representing the exact driving roads
+        public string? RouteShapeCoordinates { get; set; } = string.Empty;
 
         public ICollection<RouteStop> RouteStops { get; set; } = new List<RouteStop>();
 

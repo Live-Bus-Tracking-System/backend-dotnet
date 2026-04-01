@@ -1,4 +1,4 @@
-﻿using BusTracker.Domain.Common;
+using BusTracker.Domain.Common;
 using BusTracker.Domain.Entities;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -18,9 +18,13 @@ namespace BusTracker.Infrastructure.Persistence
         public DbSet<Route> Routes => Set<Route>();
         public DbSet<Stop> Stops => Set<Stop>();
         public DbSet<RouteStop> RouteStops => Set<RouteStop>();
+        public DbSet<VehiclePermit> VehiclePermits => Set<VehiclePermit>();
+        public DbSet<ComplianceDocument> ComplianceDocuments => Set<ComplianceDocument>();
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<ActiveAssignment> ActiveAssignments => Set<ActiveAssignment>();
         public DbSet<Student> Students => Set<Student>();
         public DbSet<StudentGuardian> StudentGuardians => Set<StudentGuardian>();
+        public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

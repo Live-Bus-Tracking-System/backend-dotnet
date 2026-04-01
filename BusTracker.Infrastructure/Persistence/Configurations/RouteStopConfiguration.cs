@@ -11,6 +11,11 @@ namespace BusTracker.Infrastructure.Persistence.Configurations
 
             builder.HasIndex(rs => new { rs.RouteId, rs.StopId, rs.StopSequence }).IsUnique();
 
+            builder.HasOne(rs => rs.Stop)
+                .WithMany()
+                .HasForeignKey(rs => rs.StopId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             builder.HasQueryFilter(o => !o.IsDeleted);
         }
     }

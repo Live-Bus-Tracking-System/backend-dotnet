@@ -9,7 +9,7 @@ namespace BusTracker.Infrastructure.Persistence.Configurations
         public void Configure(EntityTypeBuilder<ActiveAssignment> builder)
         {
             builder.HasOne(a => a.Vehicle)
-                .WithMany()
+                .WithMany(v => v.AssignmentHistory)
                 .HasForeignKey(a => a.VehicleId)
                 .OnDelete(DeleteBehavior.Restrict);
 

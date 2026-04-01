@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>BusTracker — Live Vehicle Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 24px;
+        }
+
+        h1 {
+            color: #58a6ff;
+            margin-bottom: 4px;
+            font-size: 20px;
+        }
+
+        .subtitle {
+            color: #6e7681;
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        input {
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            flex: 1;
+        }
+
+        button {
+            padding: 8px 18px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        #btnConnect {
+            background: #238636;
+            color: #fff;
+        }
+
+        #btnDisconnect {
+            background: #da3633;
+            color: #fff;
+            display: none;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .disconnected {
+            background: #21262d;
+            color: #6e7681;
+        }
+
+        .connecting {
+            background: #3d2b00;
+            color: #d29922;
+        }
+
+        .connected {
+            background: #0d2d0d;
+            color: #3fb950;
+        }
+
+        .error {
+            background: #3d0000;
+            color: #f85149;
+        }
+
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .panel {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .panel h2 {
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .kv-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .kv-table td {
+            padding: 5px 8px;
+            font-size: 13px;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .kv-table td:first-child {
+            color: #8b949e;
+            width: 140px;
+        }
+
+        .kv-table td:last-child {
+            color: #e6edf3;
+            font-weight: 600;
+            font-family: monospace;
+        }
+
+        .highlight {
+            color: #58a6ff !important;
+        }
+
+        #log {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            padding: 12px;
+            height: 260px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: monospace;
+            margin-top: 16px;
+        }
+
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid #161b22;
+        }
+
+        .log-in {
+            color: #3fb950;
+        }
+
+        .log-sys {
+            color: #8b949e;
+        }
+
+        .log-err {
+            color: #f85149;
+        }
+
+        .ping-flash {
+            animation: flash 0.4s ease-out;
+        }
+
+        @keyframes flash {
+            0% {
+                background: #1f3d2b;
+            }
+
+            100% {
+                background: transparent;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🚌 BusTracker — Live Vehicle Monitor</h1>
+    <p class="subtitle">Scenario 3: Individual Bus Map Tracking (Vehicle_Map group)</p>
+
+    <div class="config-row">
+        <input id="apiUrl" value="http://localhost:5279" placeholder="API Base URL" />
+        <input id="vehicleId" value="1B65E740-3A95-4AB2-B729-3A630BDA2A37" placeholder="Vehicle ID (GUID)" />
+        <button id="btnConnect" onclick="connect()">Connect</button>
+        <button id="btnDisconnect" onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <span id="badge" class="status-badge disconnected">● Disconnected</span>
+
+    <div class="panels">
+        <!-- Live GPS Panel -->
+        <div class="panel" id="gpsPanel">
+            <h2>📍 Live GPS</h2>
+            <table class="kv-table">
+                <tr>
+                    <td>Vehicle</td>
+                    <td id="v-name">—</td>
+                </tr>
+                <tr>
+                    <td>Plate</td>
+                    <td id="v-plate">—</td>
+                </tr>
+                <tr>
+                    <td>Route</td>
+                    <td id="v-route">—</td>
+                </tr>
+                <tr>
+                    <td>Direction</td>
+                    <td id="v-dir">—</td>
+                </tr>
+                <tr>
+                    <td>Latitude</td>
+                    <td id="v-lat" class="highlight">—</td>
+                </tr>
+                <tr>
+                    <td>Longitude</td>
+                    <td id="v-lon" class="highlight">—</td>
+                </tr>
+                <tr>
+                    <td>Heading</td>
+                    <td id="v-heading">—</td>
+                </tr>
+                <tr>
+                    <td>Speed</td>
+                    <td id="v-speed">—</td>
+                </tr>
+                <tr>
+                    <td>Next Stop</td>
+                    <td id="v-nextstop">—</td>
+                </tr>
+                <tr>
+                    <td>Next ETA</td>
+                    <td id="v-eta">—</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Ping Counter Panel -->
+        <div class="panel">
+            <h2>📊 Session Stats</h2>
+            <table class="kv-table">
+                <tr>
+                    <td>Pings Received</td>
+                    <td id="s-pings">0</td>
+                </tr>
+                <tr>
+                    <td>Last Update</td>
+                    <td id="s-lastupdate">—</td>
+                </tr>
+                <tr>
+                    <td>Group</td>
+                    <td id="s-group" class="highlight">—</td>
+                </tr>
+                <tr>
+                    <td>Connection ID</td>
+                    <td id="s-connid">—</td>
+                </tr>
+            </table>
+
+            <div style="margin-top: 16px;">
+                <div style="color: #8b949e; font-size: 12px; margin-bottom: 6px;">
+                    COPY FOR CURL TEST
+                </div>
+                <div id="curlBox" style="background:#0d1117;padding:8px;border-radius:4px;
+                 font-size:11px;font-family:monospace;color:#6e7681;word-break:break-all;">
+                    Connect first to generate a test curl command.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event log -->
+    <div id="log"></div>
+
+    <script>
+        let connection = null;
+        let pingCount = 0;
+
+        function log(msg, cls = 'log-sys') {
+            const el = document.getElementById('log');
+            const ts = new Date().toLocaleTimeString();
+            el.innerHTML = `<div class="log-line ${cls}">[${ts}] ${msg}</div>` + el.innerHTML;
+        }
+
+        function setStatus(text, cls) {
+            const b = document.getElementById('badge');
+            b.textContent = '● ' + text;
+            b.className = 'status-badge ' + cls;
+        }
+
+        function set(id, val) {
+            document.getElementById(id).textContent = val ?? '—';
+        }
+
+        async function connect() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const vehicleId = document.getElementById('vehicleId').value.trim();
+
+            if (!vehicleId) { alert('Enter a Vehicle ID (GUID from the DB)'); return; }
+
+            const hubUrl = `${apiUrl}/hubs/tracking`;
+            setStatus('Connecting…', 'connecting');
+            log(`Connecting to ${hubUrl}`, 'log-sys');
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl)
+                .withAutomaticReconnect()
+                .configureLogging(signalR.LogLevel.Warning)
+                .build();
+
+            // ── Scenario 3: Live Map handler ──────────────────────────────────
+            connection.on('ReceiveVehicleMapUpdate', (dto) => {
+                console.log('[SignalR] ReceiveVehicleMapUpdate received:', dto);
+                pingCount++;
+                set('s-pings', pingCount);
+                set('s-lastupdate', new Date().toLocaleTimeString());
+
+                set('v-name', dto.vehicleName);
+                set('v-plate', dto.licensePlate);
+                set('v-route', dto.routeName);
+                set('v-dir', dto.direction === 0 ? '→ Outbound' : '← Inbound');
+                set('v-lat', dto.latitude?.toFixed(6));
+                set('v-lon', dto.longitude?.toFixed(6));
+                set('v-heading', dto.heading != null ? `${dto.heading.toFixed(1)}°` : '—');
+                set('v-speed', dto.speedKph != null ? `${dto.speedKph} km/h` : '—');
+                set('v-nextstop', dto.nextStopName);
+                set('v-eta', dto.nextStopEtaUtc
+                    ? new Date(dto.nextStopEtaUtc).toLocaleTimeString()
+                    : '—');
+
+                // Flash GPS panel to show live update
+                const panel = document.getElementById('gpsPanel');
+                panel.classList.remove('ping-flash');
+                void panel.offsetWidth;
+                panel.classList.add('ping-flash');
+
+                log(`Ping #${pingCount} | Lat:${dto.latitude?.toFixed(5)} Lon:${dto.longitude?.toFixed(5)} | Speed:${dto.speedKph} km/h | Next: ${dto.nextStopName}`, 'log-in');
+            });
+
+            connection.onreconnecting(() => setStatus('Reconnecting…', 'connecting'));
+            connection.onreconnected(() => {
+                setStatus('Connected', 'connected');
+                const gn = `Vehicle_Map_${vehicleId}`;
+                joinGroup(vehicleId, gn);
+            });
+            connection.onclose(() => {
+                setStatus('Disconnected', 'disconnected');
+                document.getElementById('btnConnect').style.display = 'inline-block';
+                document.getElementById('btnDisconnect').style.display = 'none';
+            });
+
+            try {
+                await connection.start();
+                const connId = connection.connectionId;
+                const groupName = `Vehicle_Map_${vehicleId}`;
+                set('s-group', groupName);
+                set('s-connid', connId);
+
+                setStatus('Connected', 'connected');
+                document.getElementById('btnConnect').style.display = 'none';
+                document.getElementById('btnDisconnect').style.display = 'inline-block';
+
+                log(`Connected! ConnectionId: ${connId}`, 'log-sys');
+
+                await joinGroup(vehicleId, groupName);
+            } catch (err) {
+                setStatus('Error', 'error');
+                log(`Connection failed: ${err}`, 'log-err');
+            }
+        }
+
+        async function joinGroup(vehicleId, groupName) {
+            log(`Joining group ${groupName}…`, 'log-sys');
+            await connection.invoke('JoinVehicleMapGroup', vehicleId);
+            log(`✅ Joined group. Waiting for pings from MockTracker…`, 'log-sys');
+        }
+
+        async function disconnect() {
+            if (connection) {
+                await connection.stop();
+                connection = null;
+                pingCount = 0;
+                setStatus('Disconnected', 'disconnected');
+                document.getElementById('btnConnect').style.display = 'inline-block';
+                document.getElementById('btnDisconnect').style.display = 'none';
+                log('Disconnected.', 'log-sys');
+            }
+        }
+    </script>
+</body>
+
+</html>

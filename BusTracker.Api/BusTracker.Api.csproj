@@ -9,6 +9,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.4" />
   </ItemGroup>
@@ -17,5 +22,6 @@
     <ProjectReference Include="..\BusTracker.Application\BusTracker.Application.csproj" />
     <ProjectReference Include="..\BusTracker.Infrastructure\BusTracker.Infrastructure.csproj" />
   </ItemGroup>
+
 
 </Project>

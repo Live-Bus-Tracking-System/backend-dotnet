@@ -1,10 +1,11 @@
-﻿namespace BusTracker.Domain.Enums
+namespace BusTracker.Domain.Enums
 {
     public enum OrganizationType
     {
-        PublicTransit = 1,
-        School = 2,
-        CorporateShuttle = 3,
-        Other = 4,
+        TransitAuthority  = 1,
+        PublicTransit     = 2,
+        School            = 3,
+        CorporateShuttle  = 4,
+        Other             = 5,
     }
 }
