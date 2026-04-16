@@ -49,6 +49,10 @@ jobs:
         Twilio.AuthToken: ${{ secrets.TWILIO_AUTH_TOKEN }}
         Twilio.FromPhoneNumber: ${{ secrets.TWILIO_FROM_PHONE }}
 
+    - name: Take App Offline
+      run: |
+        echo "<html><body><h1>Deploying update, back in a minute!</h1></body></html>" > ./publish_folder/app_offline.htm
+
     - name: Deploy to SmarterASP via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
@@ -57,3 +61,11 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./publish_folder/
         server-dir: /transittrack/
+
+    - name: Bring App Online (Delete app_offline.htm)
+      uses: StephanThierry/ftp-delete-action@v2.1
+      with:
+        host: ${{ secrets.FTP_SERVER }}
+        user: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        remoteFiles: "/transittrack/app_offline.htm"
