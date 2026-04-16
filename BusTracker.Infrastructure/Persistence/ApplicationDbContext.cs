@@ -1,3 +1,4 @@
+using BusTracker.Application.Common.Interfaces;
 using BusTracker.Domain.Common;
 using BusTracker.Domain.Entities;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -6,11 +7,14 @@ using System.Reflection;
 
 namespace BusTracker.Infrastructure.Persistence
 {
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        private readonly ICurrentUserService _currentUser;
+
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ICurrentUserService currentUser)
             : base(options)
         {
+            _currentUser = currentUser;
         }
 
         public DbSet<Organization> Organizations => Set<Organization>();
@@ -40,15 +44,17 @@ namespace BusTracker.Infrastructure.Persistence
                 {
                     case EntityState.Added:
                         entry.Entity.CreatedAtUtc = DateTime.UtcNow;
+                        entry.Entity.CreatedBy = _currentUser.UserId;
                         break;
                     case EntityState.Modified:
                         entry.Entity.LastModifiedAtUtc = DateTime.UtcNow;
+                        entry.Entity.LastModifiedBy = _currentUser.UserId;
                         break;
                     case EntityState.Deleted:
                         entry.State = EntityState.Modified;
                         entry.Entity.IsDeleted = true;
                         entry.Entity.DeletedAtUtc = DateTime.UtcNow;
-                        // entry.Entity.DeletedBy = "System"; TODO: Inject user service to get current user here.
+                        entry.Entity.DeletedBy = _currentUser.UserId;
                         break;
                 }
             }

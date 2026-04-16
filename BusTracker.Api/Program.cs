@@ -24,6 +24,10 @@ namespace BusTracker.Api
             });
             builder.Services.AddEndpointsApiExplorer();
 
+            // ── Authorization ─────────────────────────────────────────────────────
+            builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider, BusTracker.Api.Authorization.PermissionPolicyProvider>();
+            builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, BusTracker.Api.Authorization.PermissionAuthorizationHandler>();
+
             // ── Swagger ───────────────────────────────────────────────────────────
             builder.Services.AddSwaggerGen();
 
@@ -55,9 +59,9 @@ namespace BusTracker.Api
                     return RateLimitPartition.GetFixedWindowLimiter(trackerId, _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 1,
-                        Window      = TimeSpan.FromSeconds(3),
+                        Window = TimeSpan.FromSeconds(3),
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                        QueueLimit  = 1
+                        QueueLimit = 1
                     });
                 });
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -78,7 +82,7 @@ namespace BusTracker.Api
             // Configure the HTTP request pipeline.
             //if (app.Environment.IsDevelopment())
             //{
-                //app.MapOpenApi();
+            //app.MapOpenApi();
             app.UseSwagger();
             app.UseSwaggerUI();
             //}

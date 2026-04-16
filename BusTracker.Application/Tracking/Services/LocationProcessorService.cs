@@ -39,296 +39,296 @@ namespace BusTracker.Application.Tracking.Services
             await trackerLock.WaitAsync();
             try
             {
-            // 1. FETCH STATE from cache
-            var state = await _cache.GetStateAsync(trackerId);
+                // 1. FETCH STATE from cache
+                var state = await _cache.GetStateAsync(trackerId);
 
-            if (state == null)
-            {
-                // COLD START: Only fetch the Expected Routes from db
-                state = await _repository.InitializeColdStateAsync(trackerId);
-                if (state == null) throw new UnauthorizedAccessException("Unknown Tracker ID");
-
-                // E4 FIX: Snapshot the original expected routes so we never need to call
-                // InitializeColdStateAsync again just to restore CandidateRouteIds on ejection/awakening.
-                state.ExpectedRouteIds = new List<Guid>(state.CandidateRouteIds);
-            }
-            else if (state.ExpectedRouteIds.Count == 0)
-            {
-                // MIGRATION FIX: Existing Redis state was stored before ExpectedRouteIds was added.
-                // Repopulate the snapshot so the E4 fix works correctly going forward.
-                if (state.CandidateRouteIds.Count > 0)
+                if (state == null)
                 {
-                    // Still ambiguous — candidates are live, copy them.
+                    // COLD START: Only fetch the Expected Routes from db
+                    state = await _repository.InitializeColdStateAsync(trackerId);
+                    if (state == null) throw new UnauthorizedAccessException("Unknown Tracker ID");
+
+                    // E4 FIX: Snapshot the original expected routes so we never need to call
+                    // InitializeColdStateAsync again just to restore CandidateRouteIds on ejection/awakening.
                     state.ExpectedRouteIds = new List<Guid>(state.CandidateRouteIds);
                 }
-                else
+                else if (state.ExpectedRouteIds.Count == 0)
                 {
-                    // Already resolved (CandidateRouteIds was cleared on resolution).
-                    // Make ONE lightweight DB call to re-populate the snapshot.
-                    var coldState = await _repository.InitializeColdStateAsync(trackerId);
-                    if (coldState != null)
-                        state.ExpectedRouteIds = new List<Guid>(coldState.CandidateRouteIds);
-                }
-            }
-
-            // 2. CHRONOLOGICAL LOCK (Time-Travel Defense)
-            if (state.TimestampUtc != DateTime.MinValue && ping.TimestampUtc <= state.TimestampUtc)
-            {
-                return state;
-            }
-
-            if (ping.TimestampUtc > DateTime.UtcNow.AddMinutes(5))
-            {
-                return state;
-            }
-
-            // 3. THE BOUNCER (Cooldown Logic)
-            // E2 FIX: Removed the redundant inner null check — .HasValue already proves it's non-null.
-            if (state.CooldownEndsAtUtc.HasValue)
-            {
-                if (DateTime.UtcNow < state.CooldownEndsAtUtc.Value)
-                {
-                    // Bus is on break. Update map coordinates so admin can see it, but skip heavy math.
-                    state.Latitude = ping.Latitude;
-                    state.Longitude = ping.Longitude;
-                    state.TimestampUtc = ping.TimestampUtc;
-                    await _cache.SetStateAsync(trackerId, state);
-
-                    // Broadcast Scenario 3 (map position only) so clients can see the parked bus.
-                    // No route/stop data since the route is complete. routeGeometry = null is safe here.
-                    await BroadcastStateAsync(state, null, new List<CachedStop>(), 0);
-                    return state;
-                }
-                else
-                {
-                    // The Awakening! Cooldown expired. Bus is back on duty.
-                    state.CooldownEndsAtUtc = null;
-                    state.IsAmbiguous = true;
-
-                    // E4 FIX: Restore from cached snapshot — zero DB calls needed.
-                    state.CandidateRouteIds = new List<Guid>(state.ExpectedRouteIds);
-                }
-            }
-
-            // 4. GPS DRIFT DEFENSE
-            var prevLat = state.Latitude;
-            var prevLon = state.Longitude;
-            var hasPrevLocation = state.TimestampUtc != DateTime.MinValue;
-
-            double currentSpeedMps = 6.94; // ~25 km/h default
-
-            if (hasPrevLocation)
-            {
-                var distanceMoved = GeoCalculator.GetDistanceMeters(prevLat, prevLon, ping.Latitude, ping.Longitude);
-                var timeDiffSeconds = (ping.TimestampUtc - state.TimestampUtc).TotalSeconds;
-
-                if (timeDiffSeconds > 0)
-                {
-                    currentSpeedMps = distanceMoved / timeDiffSeconds;
-                    // Cap speed between MinSpeedMps (crawling traffic) and 30 m/s (~108 km/h highway)
-                    currentSpeedMps = Math.Clamp(currentSpeedMps, MinSpeedMps, 30.0);
-                }
-
-                // EMA Smoothing (Freeze if < 1.0 m/s to prevent Red Light Death Spiral)
-                if (currentSpeedMps >= 1.0)
-                {
-                    if (state.SmoothedSpeedMps.HasValue)
+                    // MIGRATION FIX: Existing Redis state was stored before ExpectedRouteIds was added.
+                    // Repopulate the snapshot so the E4 fix works correctly going forward.
+                    if (state.CandidateRouteIds.Count > 0)
                     {
-                        state.SmoothedSpeedMps = (currentSpeedMps * 0.15) + (state.SmoothedSpeedMps.Value * 0.85);
+                        // Still ambiguous — candidates are live, copy them.
+                        state.ExpectedRouteIds = new List<Guid>(state.CandidateRouteIds);
                     }
                     else
                     {
-                        state.SmoothedSpeedMps = currentSpeedMps;
+                        // Already resolved (CandidateRouteIds was cleared on resolution).
+                        // Make ONE lightweight DB call to re-populate the snapshot.
+                        var coldState = await _repository.InitializeColdStateAsync(trackerId);
+                        if (coldState != null)
+                            state.ExpectedRouteIds = new List<Guid>(coldState.CandidateRouteIds);
                     }
                 }
 
-                if (distanceMoved > 10.0)
+                // 2. CHRONOLOGICAL LOCK (Time-Travel Defense)
+                if (state.TimestampUtc != DateTime.MinValue && ping.TimestampUtc <= state.TimestampUtc)
                 {
-                    state.Heading = GeoCalculator.GetBearing(state.Latitude, state.Longitude, ping.Latitude, ping.Longitude);
+                    return state;
                 }
-            }
-            else
-            {
-                state.SmoothedSpeedMps = currentSpeedMps;
-            }
 
-            state.Latitude = ping.Latitude;
-            state.Longitude = ping.Longitude;
-            state.TimestampUtc = ping.TimestampUtc;
-
-            // 5. RESOLVE AMBIGUITY (Overlapping Routes)
-            if (state.IsAmbiguous && state.Heading.HasValue)
-            {
-                state = await ResolveAmbiguousStateAsync(state);
-            }
-
-            // ── Variables shared between step 6/7 and the broadcast (P1, P2, P3 FIX) ──────────
-            // Declaring outside the if-block so BroadcastStateAsync receives pre-computed values
-            // and never needs to re-fetch from cache or re-run expensive geometry math.
-            CachedRouteGeometry? routeGeometry = null;
-            List<CachedStop> remainingStops = new();
-            double busDistanceOnLine = 0;
-
-            // 6. SPATIAL SNAP & ZOMBIE KILLER
-            if (state.ResolvedRouteId.HasValue)
-            {
-                routeGeometry = await _cache.GetRouteGeometryAsync(state.ResolvedRouteId.Value); // P3: fetched ONCE
-                if (routeGeometry == null)
+                if (ping.TimestampUtc > DateTime.UtcNow.AddMinutes(5))
                 {
-                    routeGeometry = await _repository.BuildRouteGeometryFromSqlAsync(state.ResolvedRouteId.Value);
-                    if (routeGeometry != null)
+                    return state;
+                }
+
+                // 3. THE BOUNCER (Cooldown Logic)
+                // E2 FIX: Removed the redundant inner null check — .HasValue already proves it's non-null.
+                if (state.CooldownEndsAtUtc.HasValue)
+                {
+                    if (DateTime.UtcNow < state.CooldownEndsAtUtc.Value)
                     {
-                        routeGeometry.InitializePolylineDistances();
-                        await _cache.SetRouteGeometryAsync(state.ResolvedRouteId.Value, routeGeometry);
+                        // Bus is on break. Update map coordinates so admin can see it, but skip heavy math.
+                        state.Latitude = ping.Latitude;
+                        state.Longitude = ping.Longitude;
+                        state.TimestampUtc = ping.TimestampUtc;
+                        await _cache.SetStateAsync(trackerId, state);
+
+                        // Broadcast Scenario 3 (map position only) so clients can see the parked bus.
+                        // No route/stop data since the route is complete. routeGeometry = null is safe here.
+                        await BroadcastStateAsync(state, null, new List<CachedStop>(), 0);
+                        return state;
+                    }
+                    else
+                    {
+                        // The Awakening! Cooldown expired. Bus is back on duty.
+                        state.CooldownEndsAtUtc = null;
+                        state.IsAmbiguous = true;
+
+                        // E4 FIX: Restore from cached snapshot — zero DB calls needed.
+                        state.CandidateRouteIds = new List<Guid>(state.ExpectedRouteIds);
                     }
                 }
 
-                if (routeGeometry == null)
-                {
-                    // Deleted Route Phantom. Eject and go back to ambiguity mode.
-                    state.ResolvedRouteId = null;
-                    state.IsAmbiguous = true;
+                // 4. GPS DRIFT DEFENSE
+                var prevLat = state.Latitude;
+                var prevLon = state.Longitude;
+                var hasPrevLocation = state.TimestampUtc != DateTime.MinValue;
 
-                    // E4 FIX: Restore from cached snapshot — zero DB calls needed.
-                    state.CandidateRouteIds = new List<Guid>(state.ExpectedRouteIds);
-                }
-                else
+                double currentSpeedMps = 6.94; // ~25 km/h default
+
+                if (hasPrevLocation)
                 {
-                    // Off-Route Kidnapping. Eject if bus strays > 200m
-                    if (routeGeometry.PolylineShape.Any())
+                    var distanceMoved = GeoCalculator.GetDistanceMeters(prevLat, prevLon, ping.Latitude, ping.Longitude);
+                    var timeDiffSeconds = (ping.TimestampUtc - state.TimestampUtc).TotalSeconds;
+
+                    if (timeDiffSeconds > 0)
                     {
-                        var snapResult = GeoCalculator.SnapToPolylineWithDistance(state.Latitude, state.Longitude, routeGeometry.PolylineShape);
-                        if (snapResult.OffLineDistanceMeters > OffRouteEjectionMeters)
+                        currentSpeedMps = distanceMoved / timeDiffSeconds;
+                        // Cap speed between MinSpeedMps (crawling traffic) and 30 m/s (~108 km/h highway)
+                        currentSpeedMps = Math.Clamp(currentSpeedMps, MinSpeedMps, 30.0);
+                    }
+
+                    // EMA Smoothing (Freeze if < 1.0 m/s to prevent Red Light Death Spiral)
+                    if (currentSpeedMps >= 1.0)
+                    {
+                        if (state.SmoothedSpeedMps.HasValue)
                         {
-                            state.ResolvedRouteId = null;
-                            state.IsAmbiguous = true;
-                            state.UpcomingStopEtas.Clear();
-
-                            // E4 FIX: Restore from cached snapshot — zero DB calls needed.
-                            state.CandidateRouteIds = new List<Guid>(state.ExpectedRouteIds);
-
-                            // Exit early and let next ping re-resolve
-                            await _cache.SetStateAsync(trackerId, state);
-                            return state;
-                        }
-                    }
-
-                    // E5 FIX: Replaced the tight +2 sequence window with a proximity scan.
-                    // E5 FIX: Proximity-based scan — check all forward stops within GeofenceRadiusMeters*4
-                    // of the current GPS point (not just ±2 by sequence). Handles fast buses and long
-                    // ping intervals where a stop could be skipped by the old sequence-count window.
-                    // Distances are computed once per stop to avoid double-work in Where + Select.
-                    double proximityRadius = GeofenceRadiusMeters * 4;
-
-                    var candidateStops = routeGeometry.Stops
-                        .Where(s => state.Direction == RouteDirection.Inbound
-                            ? s.Sequence < state.LastPassedStopSequence
-                            : s.Sequence > state.LastPassedStopSequence)
-                        .Select(s => (
-                            Stop: s,
-                            Distance: hasPrevLocation
-                                ? GeoCalculator.GetMinDistanceToLineSegment(s.Latitude, s.Longitude, prevLat, prevLon, ping.Latitude, ping.Longitude)
-                                : GeoCalculator.GetDistanceMeters(ping.Latitude, ping.Longitude, s.Latitude, s.Longitude)
-                        ))
-                        .Where(x => x.Distance <= proximityRadius)
-                        .ToList(); // Materialise once so MinBy doesn't re-enumerate
-
-                    // MinBy on an empty list throws — guard with Count check.
-                    var closestFutureStop = candidateStops.Count > 0
-                        ? candidateStops.MinBy(x => x.Distance)
-                        : default;
-
-                    bool isFinalStop = false;
-
-                    if (closestFutureStop.Stop != null && closestFutureStop.Distance <= GeofenceRadiusMeters)
-                    {
-                        state.LastPassedStopSequence = closestFutureStop.Stop.Sequence;
-                        
-                        // Snapshot Guid values NOW before the lambda is created.
-                        // state.ResolvedRouteId is set to null below (isFinalStop path),
-                        // so capturing state directly would cause InvalidOperationException at runtime.
-                        var capturedRouteId   = state.ResolvedRouteId!.Value;
-                        var capturedVehicleId = state.VehicleId;
-                        var capturedStopId    = closestFutureStop.Stop.StopId;
-                        var capturedTimestamp = ping.TimestampUtc;
-                        var capturedSequence  = state.LastPassedStopSequence;
-
-                        // Analytics: Record the exact time the bus hit this stop
-                        SafeFireAndForget(() => _repository.QueueStopArrivalRecordAsync(capturedVehicleId, capturedRouteId, capturedStopId, capturedTimestamp));
-
-                        isFinalStop = state.Direction == RouteDirection.Inbound
-                            // MinBy/MaxBy return null on empty sequences (safe) — Min/Max throw (not safe).
-                            ? state.LastPassedStopSequence == (routeGeometry.Stops.MinBy(s => s.Sequence)?.Sequence ?? -1)
-                            : state.LastPassedStopSequence == (routeGeometry.Stops.MaxBy(s => s.Sequence)?.Sequence ?? -1);
-
-                        if (isFinalStop)
-                        {
-                            // Kill the route assignment and trigger the Cooldown
-                            state.ResolvedRouteId = null;
-                            state.IsAmbiguous = false;
-                            state.UpcomingStopEtas.Clear();
-
-                            // Default to 30 mins if property isn't on CachedRouteGeometry yet
-                            var cooldownMins = 30; // We'll map this from your Route entity shortly!
-                            state.CooldownEndsAtUtc = DateTime.UtcNow.AddMinutes(cooldownMins);
-
-                            // WRITE-BEHIND: End the assignment safely
-                            SafeFireAndForget(() => _repository.QueueActiveAssignmentCompletionAsync(capturedVehicleId));
+                            state.SmoothedSpeedMps = (currentSpeedMps * 0.15) + (state.SmoothedSpeedMps.Value * 0.85);
                         }
                         else
                         {
-                            // WRITE-BEHIND: Update sequence safely (capturedRouteId is safe here too)
-                            SafeFireAndForget(() => _repository.QueueActiveAssignmentUpdateAsync(capturedVehicleId, capturedRouteId, capturedSequence));
+                            state.SmoothedSpeedMps = currentSpeedMps;
                         }
                     }
 
-                    // 7. CALCULATE ETAs FOR REMAINING STOPS
-                    if (!isFinalStop && state.ResolvedRouteId.HasValue)
+                    if (distanceMoved > 10.0)
                     {
-                        // P2 FIX: Computed ONCE here, passed to BroadcastStateAsync — not repeated there.
-                        remainingStops = state.Direction == RouteDirection.Inbound
-                            ? routeGeometry.Stops.Where(s => s.Sequence < state.LastPassedStopSequence).OrderByDescending(s => s.Sequence).ToList()
-                            : routeGeometry.Stops.Where(s => s.Sequence > state.LastPassedStopSequence).OrderBy(s => s.Sequence).ToList();
+                        state.Heading = GeoCalculator.GetBearing(state.Latitude, state.Longitude, ping.Latitude, ping.Longitude);
+                    }
+                }
+                else
+                {
+                    state.SmoothedSpeedMps = currentSpeedMps;
+                }
 
-                        if (remainingStops.Any())
+                state.Latitude = ping.Latitude;
+                state.Longitude = ping.Longitude;
+                state.TimestampUtc = ping.TimestampUtc;
+
+                // 5. RESOLVE AMBIGUITY (Overlapping Routes)
+                if (state.IsAmbiguous && state.Heading.HasValue)
+                {
+                    state = await ResolveAmbiguousStateAsync(state);
+                }
+
+                // ── Variables shared between step 6/7 and the broadcast (P1, P2, P3 FIX) ──────────
+                // Declaring outside the if-block so BroadcastStateAsync receives pre-computed values
+                // and never needs to re-fetch from cache or re-run expensive geometry math.
+                CachedRouteGeometry? routeGeometry = null;
+                List<CachedStop> remainingStops = new();
+                double busDistanceOnLine = 0;
+
+                // 6. SPATIAL SNAP & ZOMBIE KILLER
+                if (state.ResolvedRouteId.HasValue)
+                {
+                    routeGeometry = await _cache.GetRouteGeometryAsync(state.ResolvedRouteId.Value); // P3: fetched ONCE
+                    if (routeGeometry == null)
+                    {
+                        routeGeometry = await _repository.BuildRouteGeometryFromSqlAsync(state.ResolvedRouteId.Value);
+                        if (routeGeometry != null)
                         {
-                            // E1 FIX: Check polyline availability ONCE before the loop (was inside every iteration).
-                            // This also fixes the bug where SnapToPolyline returned 0 for an empty polyline
-                            // but the per-stop fallback only corrected distanceRemaining, not busDistanceOnLine.
-                            bool hasPolyline = routeGeometry.PolylineShape.Any();
+                            routeGeometry.InitializePolylineDistances();
+                            await _cache.SetRouteGeometryAsync(state.ResolvedRouteId.Value, routeGeometry);
+                        }
+                    }
 
-                            // P1 FIX: SnapToPolyline called ONCE here, result stored in busDistanceOnLine
-                            // and passed to BroadcastStateAsync — not re-computed there.
-                            busDistanceOnLine = hasPolyline
-                                ? GeoCalculator.SnapToPolyline(state.Latitude, state.Longitude, routeGeometry.PolylineShape)
-                                : 0;
+                    if (routeGeometry == null)
+                    {
+                        // Deleted Route Phantom. Eject and go back to ambiguity mode.
+                        state.ResolvedRouteId = null;
+                        state.IsAmbiguous = true;
 
-                            foreach (var stop in remainingStops)
+                        // E4 FIX: Restore from cached snapshot — zero DB calls needed.
+                        state.CandidateRouteIds = new List<Guid>(state.ExpectedRouteIds);
+                    }
+                    else
+                    {
+                        // Off-Route Kidnapping. Eject if bus strays > 200m
+                        if (routeGeometry.PolylineShape.Any())
+                        {
+                            var snapResult = GeoCalculator.SnapToPolylineWithDistance(state.Latitude, state.Longitude, routeGeometry.PolylineShape);
+                            if (snapResult.OffLineDistanceMeters > OffRouteEjectionMeters)
                             {
-                                double distanceRemaining = hasPolyline
-                                    ? Math.Abs(stop.AccumulatedDistanceMeters - busDistanceOnLine)
-                                    : GeoCalculator.GetDistanceMeters(state.Latitude, state.Longitude, stop.Latitude, stop.Longitude);
+                                state.ResolvedRouteId = null;
+                                state.IsAmbiguous = true;
+                                state.UpcomingStopEtas.Clear();
 
-                                // E6 FIX: Math.Max(MinSpeedMps, ...) prevents division by zero or near-zero speed.
-                                state.UpcomingStopEtas[stop.StopId] = DateTime.UtcNow.AddSeconds(
-                                    distanceRemaining / Math.Max(MinSpeedMps, state.SmoothedSpeedMps ?? currentSpeedMps));
+                                // E4 FIX: Restore from cached snapshot — zero DB calls needed.
+                                state.CandidateRouteIds = new List<Guid>(state.ExpectedRouteIds);
+
+                                // Exit early and let next ping re-resolve
+                                await _cache.SetStateAsync(trackerId, state);
+                                return state;
+                            }
+                        }
+
+                        // E5 FIX: Replaced the tight +2 sequence window with a proximity scan.
+                        // E5 FIX: Proximity-based scan — check all forward stops within GeofenceRadiusMeters*4
+                        // of the current GPS point (not just ±2 by sequence). Handles fast buses and long
+                        // ping intervals where a stop could be skipped by the old sequence-count window.
+                        // Distances are computed once per stop to avoid double-work in Where + Select.
+                        double proximityRadius = GeofenceRadiusMeters * 4;
+
+                        var candidateStops = routeGeometry.Stops
+                            .Where(s => state.Direction == RouteDirection.Inbound
+                                ? s.Sequence < state.LastPassedStopSequence
+                                : s.Sequence > state.LastPassedStopSequence)
+                            .Select(s => (
+                                Stop: s,
+                                Distance: hasPrevLocation
+                                    ? GeoCalculator.GetMinDistanceToLineSegment(s.Latitude, s.Longitude, prevLat, prevLon, ping.Latitude, ping.Longitude)
+                                    : GeoCalculator.GetDistanceMeters(ping.Latitude, ping.Longitude, s.Latitude, s.Longitude)
+                            ))
+                            .Where(x => x.Distance <= proximityRadius)
+                            .ToList(); // Materialise once so MinBy doesn't re-enumerate
+
+                        // MinBy on an empty list throws — guard with Count check.
+                        var closestFutureStop = candidateStops.Count > 0
+                            ? candidateStops.MinBy(x => x.Distance)
+                            : default;
+
+                        bool isFinalStop = false;
+
+                        if (closestFutureStop.Stop != null && closestFutureStop.Distance <= GeofenceRadiusMeters)
+                        {
+                            state.LastPassedStopSequence = closestFutureStop.Stop.Sequence;
+
+                            // Snapshot Guid values NOW before the lambda is created.
+                            // state.ResolvedRouteId is set to null below (isFinalStop path),
+                            // so capturing state directly would cause InvalidOperationException at runtime.
+                            var capturedRouteId = state.ResolvedRouteId!.Value;
+                            var capturedVehicleId = state.VehicleId;
+                            var capturedStopId = closestFutureStop.Stop.StopId;
+                            var capturedTimestamp = ping.TimestampUtc;
+                            var capturedSequence = state.LastPassedStopSequence;
+
+                            // Analytics: Record the exact time the bus hit this stop
+                            SafeFireAndForget(() => _repository.QueueStopArrivalRecordAsync(capturedVehicleId, capturedRouteId, capturedStopId, capturedTimestamp));
+
+                            isFinalStop = state.Direction == RouteDirection.Inbound
+                                // MinBy/MaxBy return null on empty sequences (safe) — Min/Max throw (not safe).
+                                ? state.LastPassedStopSequence == (routeGeometry.Stops.MinBy(s => s.Sequence)?.Sequence ?? -1)
+                                : state.LastPassedStopSequence == (routeGeometry.Stops.MaxBy(s => s.Sequence)?.Sequence ?? -1);
+
+                            if (isFinalStop)
+                            {
+                                // Kill the route assignment and trigger the Cooldown
+                                state.ResolvedRouteId = null;
+                                state.IsAmbiguous = false;
+                                state.UpcomingStopEtas.Clear();
+
+                                // Default to 30 mins if property isn't on CachedRouteGeometry yet
+                                var cooldownMins = 30; // We'll map this from your Route entity shortly!
+                                state.CooldownEndsAtUtc = DateTime.UtcNow.AddMinutes(cooldownMins);
+
+                                // WRITE-BEHIND: End the assignment safely
+                                SafeFireAndForget(() => _repository.QueueActiveAssignmentCompletionAsync(capturedVehicleId));
+                            }
+                            else
+                            {
+                                // WRITE-BEHIND: Update sequence safely (capturedRouteId is safe here too)
+                                SafeFireAndForget(() => _repository.QueueActiveAssignmentUpdateAsync(capturedVehicleId, capturedRouteId, capturedSequence));
+                            }
+                        }
+
+                        // 7. CALCULATE ETAs FOR REMAINING STOPS
+                        if (!isFinalStop && state.ResolvedRouteId.HasValue)
+                        {
+                            // P2 FIX: Computed ONCE here, passed to BroadcastStateAsync — not repeated there.
+                            remainingStops = state.Direction == RouteDirection.Inbound
+                                ? routeGeometry.Stops.Where(s => s.Sequence < state.LastPassedStopSequence).OrderByDescending(s => s.Sequence).ToList()
+                                : routeGeometry.Stops.Where(s => s.Sequence > state.LastPassedStopSequence).OrderBy(s => s.Sequence).ToList();
+
+                            if (remainingStops.Any())
+                            {
+                                // E1 FIX: Check polyline availability ONCE before the loop (was inside every iteration).
+                                // This also fixes the bug where SnapToPolyline returned 0 for an empty polyline
+                                // but the per-stop fallback only corrected distanceRemaining, not busDistanceOnLine.
+                                bool hasPolyline = routeGeometry.PolylineShape.Any();
+
+                                // P1 FIX: SnapToPolyline called ONCE here, result stored in busDistanceOnLine
+                                // and passed to BroadcastStateAsync — not re-computed there.
+                                busDistanceOnLine = hasPolyline
+                                    ? GeoCalculator.SnapToPolyline(state.Latitude, state.Longitude, routeGeometry.PolylineShape)
+                                    : 0;
+
+                                foreach (var stop in remainingStops)
+                                {
+                                    double distanceRemaining = hasPolyline
+                                        ? Math.Abs(stop.AccumulatedDistanceMeters - busDistanceOnLine)
+                                        : GeoCalculator.GetDistanceMeters(state.Latitude, state.Longitude, stop.Latitude, stop.Longitude);
+
+                                    // E6 FIX: Math.Max(MinSpeedMps, ...) prevents division by zero or near-zero speed.
+                                    state.UpcomingStopEtas[stop.StopId] = DateTime.UtcNow.AddSeconds(
+                                        distanceRemaining / Math.Max(MinSpeedMps, state.SmoothedSpeedMps ?? currentSpeedMps));
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // 8. SAVE FAST CACHE
-            await _cache.SetStateAsync(trackerId, state);
+                // 8. SAVE FAST CACHE
+                await _cache.SetStateAsync(trackerId, state);
 
-            // 9. BROADCAST LIVE DATA to the 3 SignalR groups
-            // P1, P2, P3 FIX: Pre-computed routeGeometry, remainingStops, busDistanceOnLine are
-            // passed in so BroadcastStateAsync never re-fetches from cache or re-runs geometry math.
-            // NOTE: Kept as direct await (not fire-and-forget) until debugging confirms all broadcast
-            // paths are stable. P7 (fire-and-forget) can be re-enabled once confirmed working.
-            await BroadcastStateAsync(state, routeGeometry, remainingStops, busDistanceOnLine);
+                // 9. BROADCAST LIVE DATA to the 3 SignalR groups
+                // P1, P2, P3 FIX: Pre-computed routeGeometry, remainingStops, busDistanceOnLine are
+                // passed in so BroadcastStateAsync never re-fetches from cache or re-runs geometry math.
+                // NOTE: Kept as direct await (not fire-and-forget) until debugging confirms all broadcast
+                // paths are stable. P7 (fire-and-forget) can be re-enabled once confirmed working.
+                await BroadcastStateAsync(state, routeGeometry, remainingStops, busDistanceOnLine);
 
-            return state;
+                return state;
             } // end try (A4 semaphore)
             finally
             {
@@ -353,15 +353,15 @@ namespace BusTracker.Application.Tracking.Services
             // even if the route isn't resolved yet. This prevents a "dead map" during startup.
             var mapDto = new VehicleLiveMapDto
             {
-                VehicleId    = state.VehicleId,
-                VehicleName  = state.VehicleName,
+                VehicleId = state.VehicleId,
+                VehicleName = state.VehicleName,
                 LicensePlate = state.LicensePlate,
-                RouteName    = state.RouteName ?? "Resolving Route...",
-                Direction    = state.Direction,
-                Latitude     = state.Latitude,
-                Longitude    = state.Longitude,
-                Heading      = state.Heading,
-                SpeedKph     = state.SmoothedSpeedMps.HasValue ? Math.Round(state.SmoothedSpeedMps.Value * 3.6, 1) : null
+                RouteName = state.RouteName ?? "Resolving Route...",
+                Direction = state.Direction,
+                Latitude = state.Latitude,
+                Longitude = state.Longitude,
+                Heading = state.Heading,
+                SpeedKph = state.SmoothedSpeedMps.HasValue ? Math.Round(state.SmoothedSpeedMps.Value * 3.6, 1) : null
             };
 
             // Scenario 1 & 2 (and extra details for 3) require a resolved route
@@ -381,13 +381,13 @@ namespace BusTracker.Application.Tracking.Services
                 // ── Scenario 1: Route Bus List ───────────────────────────────────────────────
                 var routeListDto = new RouteBusListDto
                 {
-                    VehicleId      = state.VehicleId,
-                    RouteId        = state.ResolvedRouteId.Value,
-                    VehicleName    = state.VehicleName,
-                    LicensePlate   = state.LicensePlate,
-                    RouteName      = state.RouteName,
-                    Direction      = state.Direction,
-                    NextStopName   = nextStop?.StopName,
+                    VehicleId = state.VehicleId,
+                    RouteId = state.ResolvedRouteId.Value,
+                    VehicleName = state.VehicleName,
+                    LicensePlate = state.LicensePlate,
+                    RouteName = state.RouteName,
+                    Direction = state.Direction,
+                    NextStopName = nextStop?.StopName,
                     NextStopEtaUtc = nextStopEta
                 };
                 SafeFireAndForget(() => _broadcaster.BroadcastRouteUpdateAsync(routeListDto));
@@ -413,24 +413,24 @@ namespace BusTracker.Application.Tracking.Services
 
                         return new UpcomingStopDetailDto
                         {
-                            StopId       = stop.StopId,
-                            Sequence     = stop.Sequence,
-                            StopName     = stop.StopName,
-                            EtaUtc       = stopEta,
+                            StopId = stop.StopId,
+                            Sequence = stop.Sequence,
+                            StopName = stop.StopName,
+                            EtaUtc = stopEta,
                             DistanceText = distText
                         };
                     }).ToList();
 
                     var textDto = new VehicleDetailTextDto
                     {
-                        VehicleId      = state.VehicleId,
-                        VehicleName    = state.VehicleName,
-                        LicensePlate   = state.LicensePlate,
-                        RouteName      = state.RouteName,
-                        Direction      = state.Direction,
-                        NextStopName   = nextStop?.StopName,
+                        VehicleId = state.VehicleId,
+                        VehicleName = state.VehicleName,
+                        LicensePlate = state.LicensePlate,
+                        RouteName = state.RouteName,
+                        Direction = state.Direction,
+                        NextStopName = nextStop?.StopName,
                         NextStopEtaUtc = nextStopEta,
-                        UpcomingStops  = upcomingStopDetails
+                        UpcomingStops = upcomingStopDetails
                     };
                     SafeFireAndForget(() => _broadcaster.BroadcastVehicleTextUpdateAsync(textDto));
                 }

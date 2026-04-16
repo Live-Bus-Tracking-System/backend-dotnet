@@ -1,3 +1,5 @@
+using BusTracker.Application.Common.Events;
+using BusTracker.Domain.Common;
 using BusTracker.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -38,20 +40,37 @@ namespace BusTracker.Infrastructure.BackgroundJobs
             {
                 try
                 {
-                    // Deserializing dynamically using TypeNameHandling
-                    var domainEvent = JsonConvert.DeserializeObject<INotification>(
+                    // Deserialize to the concrete type using $type metadata embedded by TypeNameHandling.All
+                    var deserialized = JsonConvert.DeserializeObject<object>(
                         message.Content,
-                        new JsonSerializerSettings
-                        {
-                            TypeNameHandling = TypeNameHandling.All
-                        });
+                        new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.All });
 
-                    if (domainEvent is null)
+                    if (deserialized is null)
+                        throw new InvalidOperationException($"Failed to deserialize outbox message {message.Id}.");
+
+                    INotification notification;
+
+                    if (deserialized is INotification appEvent)
                     {
-                        throw new Exception($"Failed to deserialize outbox message {message.Id} to INotification.");
+                        // Auth events (LoginEvent, RegisterEvent, etc.) already implement INotification directly.
+                        notification = appEvent;
+                    }
+                    else if (deserialized is IDomainEvent domainEvent)
+                    {
+                        // Pure Domain Events: wrap them in the Application-layer envelope so
+                        // MediatR can route them without Domain knowing about MediatR.
+                        var wrapperType = typeof(DomainEventNotification<>)
+                            .MakeGenericType(domainEvent.GetType());
+
+                        notification = (INotification)Activator.CreateInstance(wrapperType, domainEvent)!;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException(
+                            $"Outbox message {message.Id} (type: {message.Type}) is neither INotification nor IDomainEvent.");
                     }
 
-                    await _publisher.Publish(domainEvent, context.CancellationToken);
+                    await _publisher.Publish(notification, context.CancellationToken);
 
                     message.ProcessedOnUtc = DateTime.UtcNow;
                 }

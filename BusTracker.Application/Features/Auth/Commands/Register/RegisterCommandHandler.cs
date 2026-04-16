@@ -19,8 +19,8 @@ namespace BusTracker.Application.Features.Auth.Commands.Register
         private readonly IEventService _eventService;
 
         public RegisterCommandHandler(
-            IIdentityService identityService, 
-            IJwtTokenGenerator jwtGenerator, 
+            IIdentityService identityService,
+            IJwtTokenGenerator jwtGenerator,
             IAuthRepository authRepository,
             IValidator<RegisterCommand> validator,
             IEventService eventService)
@@ -40,15 +40,15 @@ namespace BusTracker.Application.Features.Auth.Commands.Register
                 throw new CustomValidationException(validationResult.Errors);
             }
             var userId = await _identityService.CreateUserAsync(
-                request.FullName, 
-                request.Email, 
-                request.PhoneNumber, 
+                request.FullName,
+                request.Email,
+                request.PhoneNumber,
                 request.Password);
 
             await _eventService.EmitAsync(new RegisterEvent(userId, request.FullName, request.Email, request.PhoneNumber), cancellationToken);
 
             var user = await _identityService.GetUserByIdAsync(userId);
-            
+
             var accessToken = _jwtGenerator.GenerateAccessToken(user);
             var (rawRefreshToken, refreshTokenHash) = _jwtGenerator.GenerateRefreshToken();
 

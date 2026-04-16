@@ -12,15 +12,21 @@ namespace BusTracker.Infrastructure.Services
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IPhoneNumberService _phoneNumberService;
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IApplicationDbContext _db;
 
         public IdentityService(
-            UserManager<ApplicationUser> userManager, 
+            UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
-            IPhoneNumberService phoneNumberService)
+            IPhoneNumberService phoneNumberService,
+            RoleManager<IdentityRole> roleManager,
+            IApplicationDbContext db)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _phoneNumberService = phoneNumberService;
+            _roleManager = roleManager;
+            _db = db;
         }
 
         public async Task<UserAuthDto> AuthenticateAsync(string emailOrPhone, string password)
@@ -60,7 +66,7 @@ namespace BusTracker.Infrastructure.Services
         public async Task<string> CreateUserAsync(string fullName, string? email, string phoneNumber, string password)
         {
             var normalizedPhone = _phoneNumberService.Normalize(phoneNumber);
-            if (normalizedPhone == null) 
+            if (normalizedPhone == null)
                 throw new CustomValidationException(new[] { new FluentValidation.Results.ValidationFailure("PhoneNumber", "Invalid phone number format.") });
 
             // Double check if phone or email already exists
@@ -85,7 +91,7 @@ namespace BusTracker.Infrastructure.Services
                 throw new CustomValidationException(errors);
             }
 
-            await _userManager.AddToRoleAsync(user, "Passenger");
+            await _userManager.AddToRoleAsync(user, BusTracker.Application.Common.Auth.Roles.Passenger);
 
             return user.Id;
         }
@@ -165,6 +171,32 @@ namespace BusTracker.Infrastructure.Services
         private async Task<UserAuthDto> BuildAuthDto(ApplicationUser user)
         {
             var roles = await _userManager.GetRolesAsync(user);
+            var permissions = new HashSet<string>();
+
+            foreach (var roleName in roles)
+            {
+                var role = await _roleManager.FindByNameAsync(roleName);
+                if (role != null)
+                {
+                    var claims = await _roleManager.GetClaimsAsync(role);
+                    foreach (var claim in claims.Where(c => c.Type == "permission"))
+                    {
+                        permissions.Add(claim.Value);
+                    }
+                }
+            }
+
+            string? organizationTypeStr = null;
+            if (user.OrganizationId.HasValue)
+            {
+                var orgType = await _db.Organizations
+                    .AsNoTracking()
+                    .Where(o => o.Id == user.OrganizationId.Value)
+                    .Select(o => o.Type)
+                    .FirstOrDefaultAsync();
+
+                organizationTypeStr = orgType.ToString();
+            }
 
             return new UserAuthDto
             {
@@ -173,11 +205,35 @@ namespace BusTracker.Infrastructure.Services
                 Phone = user.PhoneNumber ?? "",
                 FullName = user.FullName,
                 Roles = roles,
+                Permissions = permissions.ToList(),
                 SecurityStamp = user.SecurityStamp,
                 OrganizationId = user.OrganizationId?.ToString(),
-                // If organization exists, read the Type (requires EF inclusion, simplified here)
-                OrganizationType = user.OrganizationId != null ? "PublicTransit" : null // Expand logic when Org loaded.
+                OrganizationType = organizationTypeStr
             };
+        }
+
+        public async Task AssignUserToOrganisationAsync(string userId, Guid organisationId, string role)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) throw new NotFoundException("User", userId);
+
+            user.OrganizationId = organisationId;
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                var errors = updateResult.Errors.Select(e => new FluentValidation.Results.ValidationFailure(e.Code, e.Description));
+                throw new CustomValidationException(errors);
+            }
+
+            if (!await _userManager.IsInRoleAsync(user, role))
+            {
+                var roleResult = await _userManager.AddToRoleAsync(user, role);
+                if (!roleResult.Succeeded)
+                {
+                    var errors = roleResult.Errors.Select(e => new FluentValidation.Results.ValidationFailure(e.Code, e.Description));
+                    throw new CustomValidationException(errors);
+                }
+            }
         }
     }
 }

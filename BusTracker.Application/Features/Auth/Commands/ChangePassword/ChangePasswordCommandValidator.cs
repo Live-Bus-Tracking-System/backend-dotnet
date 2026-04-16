@@ -8,7 +8,7 @@ namespace BusTracker.Application.Features.Auth.Commands.ChangePassword
         {
             RuleFor(v => v.UserId).NotEmpty();
             RuleFor(v => v.CurrentPassword).NotEmpty().WithMessage("Current password is required.");
-            
+
             RuleFor(v => v.NewPassword)
                 .NotEmpty().WithMessage("New password is required.")
                 .MinimumLength(8).WithMessage("Password must be at least 8 characters.")

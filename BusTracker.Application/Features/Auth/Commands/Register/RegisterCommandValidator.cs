@@ -1,6 +1,5 @@
 using BusTracker.Application.Common.Interfaces;
 using FluentValidation;
-using System.ComponentModel.DataAnnotations;
 
 namespace BusTracker.Application.Features.Auth.Commands.Register
 {
@@ -35,7 +34,7 @@ namespace BusTracker.Application.Features.Auth.Commands.Register
                 .Matches("[a-z]").WithMessage("Password must contain at least one lowercase letter.")
                 .Matches("[0-9]").WithMessage("Password must contain at least one number.")
                 .Matches("[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character.");
-    
+
         }
     }
 }

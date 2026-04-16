@@ -77,7 +77,7 @@ namespace BusTracker.Api.Controllers
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordCommand command)
         {
             var token = await _mediator.Send(command);
-            
+
             // In MVP: returning token to client. In PROD: Do NOT return the token, email it.
             return Ok(new { Message = "Reset token generated.", Token = token });
         }

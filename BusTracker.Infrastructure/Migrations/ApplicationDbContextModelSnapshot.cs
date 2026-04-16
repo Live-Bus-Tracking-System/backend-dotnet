@@ -303,6 +303,9 @@ namespace BusTracker.Infrastructure.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
                     b.Property<int>("Type")
                         .HasColumnType("int");
 
@@ -789,6 +792,9 @@ namespace BusTracker.Infrastructure.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("RegistrationNotes")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -920,6 +926,9 @@ namespace BusTracker.Infrastructure.Migrations
                     b.Property<Guid>("VehicleId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("VehicleId1")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("VerifiedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -930,6 +939,8 @@ namespace BusTracker.Infrastructure.Migrations
                     b.HasIndex("PermitStatus");
 
                     b.HasIndex("RouteId");
+
+                    b.HasIndex("VehicleId1");
 
                     b.HasIndex("VehicleId", "RouteId")
                         .IsUnique()
@@ -1229,6 +1240,10 @@ namespace BusTracker.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("BusTracker.Domain.Entities.Vehicle", null)
+                        .WithMany("Permits")
+                        .HasForeignKey("VehicleId1");
+
                     b.Navigation("Organization");
 
                     b.Navigation("Route");
@@ -1312,6 +1327,8 @@ namespace BusTracker.Infrastructure.Migrations
                     b.Navigation("AssignmentHistory");
 
                     b.Navigation("ExpectedRoutes");
+
+                    b.Navigation("Permits");
                 });
 #pragma warning restore 612, 618
         }

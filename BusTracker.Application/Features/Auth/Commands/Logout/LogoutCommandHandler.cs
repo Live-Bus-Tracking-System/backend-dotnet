@@ -24,12 +24,12 @@ namespace BusTracker.Application.Features.Auth.Commands.Logout
 
             var hash = _jwtTokenGenerator.HashRefreshToken(request.RawRefreshToken);
             var tokenEntity = await _authRepository.GetActiveRefreshTokenAsync(hash, cancellationToken);
-            
+
             if (tokenEntity != null)
             {
                 tokenEntity.IsRevoked = true;
                 tokenEntity.RevokedAtUtc = DateTime.UtcNow;
-                
+
                 await _authRepository.UpdateRefreshTokenAsync(tokenEntity, cancellationToken);
             }
         }

@@ -17,8 +17,8 @@ namespace BusTracker.Application.Features.Auth.Commands.Login
         private readonly IValidator<LoginCommand> _validator;
         private readonly IEventService _eventService;
         public LoginCommandHandler(
-            IIdentityService identityService, 
-            IJwtTokenGenerator jwtGenerator, 
+            IIdentityService identityService,
+            IJwtTokenGenerator jwtGenerator,
             IAuthRepository authRepository,
             IValidator<LoginCommand> validator,
             IEventService eventService)

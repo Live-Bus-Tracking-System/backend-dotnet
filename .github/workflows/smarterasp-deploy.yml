@@ -1,0 +1,59 @@
+name: Deploy .NET 10 to SmarterASP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore ./BusTracker.Api/BusTracker.Api.csproj
+
+    - name: Build
+      run: dotnet build ./BusTracker.Api/BusTracker.Api.csproj --configuration Release --no-restore
+
+    - name: Publish
+      run: dotnet publish ./BusTracker.Api/BusTracker.Api.csproj --configuration Release --no-build --output ./publish_folder
+
+    - name: Inject Secrets into appsettings.json
+      uses: microsoft/variable-substitution@v1
+      with:
+        files: './publish_folder/appsettings.json'
+      env:
+        ConnectionStrings.DefaultConnection: ${{ secrets.DB_DEFAULT_CONNECTION }}
+        ConnectionStrings.RedisConnection: ${{ secrets.DB_REDIS_CONNECTION }}
+        Jwt.Issuer: ${{ secrets.JWT_ISSUER }}
+        Jwt.Audience: ${{ secrets.JWT_AUDIENCE }}
+        Jwt.Secret: ${{ secrets.JWT_SECRET}}
+        Documents.EncryptionKey: ${{ secrets.DOCS_ENCRYPTION_KEY }}
+        Documents.SigningSecret: ${{ secrets.DOCS_SIGNING_SECRET }}
+        Tracking.MasterKey: ${{ secrets.TRACKING_MASTER_KEY }}
+        SendGrid.ApiKey: ${{ secrets.SENDGRID_API_KEY }}
+        SendGrid.FromEmail: ${{ secrets.SENDGRID_FROM_EMAIL }}
+        SendGrid.FromName: ${{ secrets.SENDGRID_FROM_NAME }}
+        SuperAdmin.Email: ${{ secrets.SUPERADMIN_EMAIL }}
+        SuperAdmin.Password: ${{ secrets.SUPERADMIN_PASSWORD }}
+        Twilio.AccountSid: ${{ secrets.TWILIO_ACCOUNT_SID }}
+        Twilio.AuthToken: ${{ secrets.TWILIO_AUTH_TOKEN }}
+        Twilio.FromPhoneNumber: ${{ secrets.TWILIO_FROM_PHONE }}
+
+    - name: Deploy to SmarterASP via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./publish_folder/
+        server-dir: /transittrack/

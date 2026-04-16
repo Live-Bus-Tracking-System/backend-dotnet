@@ -81,12 +81,12 @@ namespace BusTracker.Infrastructure.BackgroundJobs
 
             var newAssignment = new ActiveAssignment
             {
-                VehicleId      = evt.VehicleId,
-                RouteId        = evt.RouteId!.Value,
-                Direction      = evt.Direction!.Value,
+                VehicleId = evt.VehicleId,
+                RouteId = evt.RouteId!.Value,
+                Direction = evt.Direction!.Value,
                 OrganizationId = vehicle.OrganizationId,
-                StartTimeUtc   = DateTime.UtcNow,
-                IsCompleted    = false
+                StartTimeUtc = DateTime.UtcNow,
+                IsCompleted = false
             };
 
             context.Set<ActiveAssignment>().Add(newAssignment);

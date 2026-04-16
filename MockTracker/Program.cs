@@ -21,7 +21,7 @@ var config = new TrackerConfig
     // ── CHANGE THESE ─────────────────────────────────────────────────────────
     ApiBaseUrl          = "http://localhost:5279",    // HTTP profile from launchSettings.json
     TrackerId           = "TRACKER_001",              // Matches Vehicles.TrackerId in DB
-    MasterKey           = "masterkeyalfiufvniunviunvriunvoine87qoi",     // ← paste your Tracking:MasterKey here
+    MasterKey           = "V2zDzZx8lQaZbPi8mDRg7WqOhD7mjknETFo0Ql",     // ← paste your Tracking:MasterKey here
     PingIntervalSeconds = 3,
     // ─────────────────────────────────────────────────────────────────────────
 

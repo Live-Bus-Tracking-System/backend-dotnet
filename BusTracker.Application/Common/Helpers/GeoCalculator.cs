@@ -44,22 +44,22 @@
         {
             double metersPerDegreeLat = 111320.0;
             double metersPerDegreeLon = 111320.0 * Math.Cos(pointLat * Math.PI / 180.0);
-            
+
             double px = (pointLon - lineStartLon) * metersPerDegreeLon;
             double py = (pointLat - lineStartLat) * metersPerDegreeLat;
-            
+
             double sx = (lineEndLon - lineStartLon) * metersPerDegreeLon;
             double sy = (lineEndLat - lineStartLat) * metersPerDegreeLat;
-            
+
             double segmentLengthSquared = sx * sx + sy * sy;
-            
+
             if (segmentLengthSquared == 0) return GetDistanceMeters(pointLat, pointLon, lineStartLat, lineStartLon);
-            
+
             double t = Math.Max(0, Math.Min(1, (px * sx + py * sy) / segmentLengthSquared));
-            
+
             double closestX = t * sx;
             double closestY = t * sy;
-            
+
             double distanceSq = (px - closestX) * (px - closestX) + (py - closestY) * (py - closestY);
             return Math.Sqrt(distanceSq);
         }
@@ -110,7 +110,7 @@
                     var dist = GetDistanceMeters(previousPoint.Latitude, previousPoint.Longitude, point.Latitude, point.Longitude);
                     accumulatedDistance += dist;
                 }
-                
+
                 point.AccumulatedDistanceMeters = accumulatedDistance;
                 poly.Add(point);
                 previousPoint = point;

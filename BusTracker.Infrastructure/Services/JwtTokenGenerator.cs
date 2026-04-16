@@ -35,11 +35,6 @@ namespace BusTracker.Infrastructure.Services
                 new Claim(JwtRegisteredClaimNames.PhoneNumber, user.Phone)
             };
 
-            // Vital for instantly invalidating tokens post-password reset
-            if (!string.IsNullOrEmpty(user.SecurityStamp))
-            {
-                claims.Add(new Claim("AspNet.Identity.SecurityStamp", user.SecurityStamp));
-            }
 
             if (!string.IsNullOrEmpty(user.OrganizationId))
             {
@@ -53,6 +48,11 @@ namespace BusTracker.Infrastructure.Services
             foreach (var role in user.Roles)
             {
                 claims.Add(new Claim("role", role));
+            }
+
+            foreach (var permission in user.Permissions)
+            {
+                claims.Add(new Claim("permission", permission));
             }
 
             var token = new JwtSecurityToken(

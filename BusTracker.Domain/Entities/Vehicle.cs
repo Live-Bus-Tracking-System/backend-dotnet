@@ -1,4 +1,4 @@
-﻿using BusTracker.Domain.Common;
+using BusTracker.Domain.Common;
 
 namespace BusTracker.Domain.Entities
 {
@@ -13,8 +13,11 @@ namespace BusTracker.Domain.Entities
         public int? Capacity { get; set; }
         public bool IsActive { get; set; } = true;
 
+        public string? RegistrationNotes { get; set; }
+
         public ICollection<ActiveAssignment> AssignmentHistory { get; set; } = new List<ActiveAssignment>();
 
         public ICollection<VehicleExpectedRoute> ExpectedRoutes { get; set; } = new List<VehicleExpectedRoute>();
+        public ICollection<VehiclePermit> Permits { get; set; } = new List<VehiclePermit>();
     }
 }

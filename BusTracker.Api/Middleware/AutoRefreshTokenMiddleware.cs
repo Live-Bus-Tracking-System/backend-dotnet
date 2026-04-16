@@ -28,7 +28,7 @@ namespace BusTracker.Api.Middleware
             }
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            
+
             bool needsRefresh = false;
 
             if (!string.IsNullOrEmpty(tokenStr) && tokenHandler.CanReadToken(tokenStr))

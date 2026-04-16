@@ -29,9 +29,9 @@ namespace BusTracker.Infrastructure.Persistence.Configurations
                 .IsRequired(false)
                 .HasMaxLength(50);
 
-             builder.Property(builder => builder.SystemNotes)
-                .IsRequired(false)
-                .HasMaxLength(500);
+            builder.Property(builder => builder.SystemNotes)
+               .IsRequired(false)
+               .HasMaxLength(500);
 
             builder.HasIndex(sg => new { sg.StudentId, sg.NormalizedPhoneNumber })
                 .IsUnique()

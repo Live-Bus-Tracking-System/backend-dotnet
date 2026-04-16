@@ -37,7 +37,19 @@ namespace BusTracker.Infrastructure.Persistence
                 builder.UseNetTopologySuite();
             });
 
-            return new ApplicationDbContext(optionsBuilder.Options);
+            var dummyCurrentUserService = new DesignTimeCurrentUserService();
+            return new ApplicationDbContext(optionsBuilder.Options, dummyCurrentUserService);
+        }
+
+        private class DesignTimeCurrentUserService : BusTracker.Application.Common.Interfaces.ICurrentUserService
+        {
+            public string? UserId => null;
+            public string? Email => null;
+            public string? IpAddress => null;
+            public bool IsAuthenticated => false;
+            public bool IsSuperAdmin => false;
+            public Guid? OrganisationId => null;
+            public string? OrganisationType => null;
         }
     }
 }

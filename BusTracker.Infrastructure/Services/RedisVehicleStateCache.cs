@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using StackExchange.Redis;
 using BusTracker.Application.Common.Interfaces;
 using BusTracker.Application.Tracking.Models;
@@ -40,6 +40,28 @@ namespace BusTracker.Infrastructure.Services
         {
             var key = $"{StateKeyPrefix}{trackerId}";
             return await _db.KeyExistsAsync(key);
+        }
+
+        public async Task DeleteTrackerStateAsync(string trackerId)
+        {
+            var key = $"{StateKeyPrefix}{trackerId}";
+            await _db.KeyDeleteAsync(key);
+        }
+
+        public async Task MigrateTrackerStateAsync(string oldTrackerId, string newTrackerId)
+        {
+            if (oldTrackerId == newTrackerId) return;
+
+            var oldKey = $"{StateKeyPrefix}{oldTrackerId}";
+            var newKey = $"{StateKeyPrefix}{newTrackerId}";
+
+            var existing = await _db.StringGetAsync(oldKey);
+
+            if (!existing.HasValue) return; // Nothing to migrate — vehicle was never live
+
+            // Write state under new ID first, then remove old key (safe ordering)
+            await _db.StringSetAsync(newKey, existing, TimeSpan.FromHours(6));
+            await _db.KeyDeleteAsync(oldKey);
         }
 
         // --- GLOBAL ROUTE GEOMETRY CACHE ---
@@ -100,7 +122,7 @@ namespace BusTracker.Infrastructure.Services
                 }
             }
 
-            if (keys.Count == 0) 
+            if (keys.Count == 0)
                 return Array.Empty<(string, VehicleLiveState)>();
 
             // 2. MGET: Fetch all values in a single network round-trip for massive performance gain

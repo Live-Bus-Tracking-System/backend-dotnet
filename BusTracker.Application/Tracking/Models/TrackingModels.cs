@@ -12,7 +12,7 @@ namespace BusTracker.Application.Tracking.Models
         public double MinLon { get; set; }
         public double MaxLon { get; set; }
         public List<CachedStop> Stops { get; set; } = new();
-        
+
         // Exact physical layout of the route mapped via OSRM
         public List<RoutePolylinePoint> PolylineShape { get; set; } = new();
 
@@ -24,7 +24,7 @@ namespace BusTracker.Application.Tracking.Models
         public void InitializePolylineDistances()
         {
             if (PolylineShape == null || !PolylineShape.Any()) return;
-            
+
             foreach (var stop in Stops)
             {
                 stop.AccumulatedDistanceMeters = BusTracker.Application.Common.Helpers.GeoCalculator.SnapToPolyline(stop.Latitude, stop.Longitude, PolylineShape);

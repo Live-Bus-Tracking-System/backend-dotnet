@@ -1,4 +1,4 @@
-﻿using BusTracker.Application.Tracking.Models;
+using BusTracker.Application.Tracking.Models;
 
 namespace BusTracker.Application.Common.Interfaces
 {
@@ -8,6 +8,8 @@ namespace BusTracker.Application.Common.Interfaces
         Task SetStateAsync(string trackerId, VehicleLiveState state);
         Task<VehicleLiveState?> GetStateAsync(string trackerId);
         Task<bool> IsVehicleActiveAsync(string trackerId);
+        Task DeleteTrackerStateAsync(string trackerId);
+        Task MigrateTrackerStateAsync(string oldTrackerId, string newTrackerId);
 
         // Global Route Geometry
         Task<CachedRouteGeometry?> GetRouteGeometryAsync(Guid routeId);

@@ -38,7 +38,7 @@ namespace BusTracker.Api.Middleware
             var response = new ApiResponse<object?>
             {
                 Success = false,
-                Meta    = new ApiMeta { RequestId = context.TraceIdentifier }
+                Meta = new ApiMeta { RequestId = context.TraceIdentifier }
             };
 
             switch (exception)
@@ -49,35 +49,35 @@ namespace BusTracker.Api.Middleware
                     var validationErrors = validationException.Errors
                         .SelectMany(kvp => kvp.Value.Select(err => $"{kvp.Key}: {err}"))
                         .ToList();
-                    
+
                     response = new ApiResponse<object?>
                     {
                         Success = false,
                         Message = "Validation Failed.",
-                        Errors  = validationErrors,
-                        Meta    = new ApiMeta { RequestId = context.TraceIdentifier }
+                        Errors = validationErrors,
+                        Meta = new ApiMeta { RequestId = context.TraceIdentifier }
                     };
                     break;
-                
+
                 case NotFoundException notFoundException:
                     context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                     response = new ApiResponse<object?>
                     {
                         Success = false,
                         Message = notFoundException.Message,
-                        Errors  = { notFoundException.Message },
-                        Meta    = new ApiMeta { RequestId = context.TraceIdentifier }
+                        Errors = { notFoundException.Message },
+                        Meta = new ApiMeta { RequestId = context.TraceIdentifier }
                     };
                     break;
-                
+
                 case UnauthorizedException unauthorizedException:
                     context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
                     response = new ApiResponse<object?>
                     {
                         Success = false,
                         Message = "Authentication Failed.",
-                        Errors  = { unauthorizedException.Message },
-                        Meta    = new ApiMeta { RequestId = context.TraceIdentifier }
+                        Errors = { unauthorizedException.Message },
+                        Meta = new ApiMeta { RequestId = context.TraceIdentifier }
                     };
                     break;
 
@@ -87,8 +87,8 @@ namespace BusTracker.Api.Middleware
                     {
                         Success = false,
                         Message = "An internal server error occurred.",
-                        Errors  = { "Internal Server Error" },
-                        Meta    = new ApiMeta { RequestId = context.TraceIdentifier }
+                        Errors = { "Internal Server Error" },
+                        Meta = new ApiMeta { RequestId = context.TraceIdentifier }
                     };
                     break;
             }

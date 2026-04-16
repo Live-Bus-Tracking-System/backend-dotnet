@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NetTopologySuite.Index.Quadtree;
 using System.Security.Claims;
 
 
@@ -12,28 +13,23 @@ namespace BusTracker.Infrastructure.Seeders
     public static class SuperAdminSeeder
     {
         private sealed class Log { }
-        private const string SuperAdminRole          = "SuperAdmin";
-        private const string TransitAuthorityRole    = "TransitAuthorityAdmin";
-        private const string OrgAdminRole            = "OrgAdmin";
-        private const string OrgStaffRole            = "OrgStaff";
-        private const string PassengerRole           = "Passenger";
 
         // Role → permission list mapping
         private static readonly Dictionary<string, IReadOnlyList<string>> RolePermissions = new()
         {
-            [SuperAdminRole]       = Permissions.SuperAdminPermissions,
-            [TransitAuthorityRole] = Permissions.TransitAuthorityAdminPermissions,
-            [OrgAdminRole]         = Permissions.OrgAdminPermissions,
-            [OrgStaffRole]         = Permissions.OrgStaffPermissions,
-            [PassengerRole]        = Permissions.PassengerPermissions,
+            [Roles.SuperAdmin] = Permissions.SuperAdminPermissions,
+            [Roles.TransitAuthorityAdmin] = Permissions.TransitAuthorityAdminPermissions,
+            [Roles.OrgAdmin] = Permissions.OrgAdminPermissions,
+            [Roles.OrgStaff] = Permissions.OrgStaffPermissions,
+            [Roles.Passenger] = Permissions.PassengerPermissions,
         };
 
         public static async Task SeedAsync(IServiceProvider services)
         {
-            var roleManager  = services.GetRequiredService<RoleManager<IdentityRole>>();
-            var userManager  = services.GetRequiredService<UserManager<ApplicationUser>>();
-            var config       = services.GetRequiredService<IConfiguration>();
-            var logger       = services.GetRequiredService<ILogger<Log>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+            var config = services.GetRequiredService<IConfiguration>();
+            var logger = services.GetRequiredService<ILogger<Log>>();
 
             await SeedRolesAndPermissionsAsync(roleManager, logger);
             await SeedSuperAdminUserAsync(userManager, config, logger);
@@ -58,26 +54,51 @@ namespace BusTracker.Infrastructure.Seeders
                     }
                     logger.LogInformation("Created role: {Role}", roleName);
                 }
+                else
+                {
+                    continue;
+                }
 
-                // Sync permissions into AspNetRoleClaims (add missing, don't remove extra)
-                var role           = await roleManager.FindByNameAsync(roleName);
+                // Sync permissions into AspNetRoleClaims
+                var role = await roleManager.FindByNameAsync(roleName);
                 var existingClaims = await roleManager.GetClaimsAsync(role!);
-                var existingPerms  = existingClaims
+                var existingPerms = existingClaims
                     .Where(c => c.Type == "permission")
                     .Select(c => c.Value)
                     .ToHashSet();
 
+                // 1. Add missing permissions
                 foreach (var permission in permissions)
                 {
-                    if (existingPerms.Contains(permission))
-                        continue;
-
-                    var result = await roleManager.AddClaimAsync(role!, new Claim("permission", permission));
-                    if (!result.Succeeded)
+                    if (!existingPerms.Contains(permission))
                     {
-                        logger.LogWarning("Failed to add permission {Permission} to role {Role}: {Errors}",
-                            permission, roleName,
-                            string.Join(", ", result.Errors.Select(e => e.Description)));
+                        var result = await roleManager.AddClaimAsync(role!, new Claim("permission", permission));
+                        if (!result.Succeeded)
+                        {
+                            logger.LogWarning("Failed to add permission {Permission} to role {Role}: {Errors}",
+                                permission, roleName,
+                                string.Join(", ", result.Errors.Select(e => e.Description)));
+                        }
+                    }
+                }
+
+                // 2. Remove stale permissions that are no longer in code
+                var expectedPerms = permissions.ToHashSet();
+                foreach (var existingClaim in existingClaims.Where(c => c.Type == "permission"))
+                {
+                    if (!expectedPerms.Contains(existingClaim.Value))
+                    {
+                        var result = await roleManager.RemoveClaimAsync(role!, existingClaim);
+                        if (!result.Succeeded)
+                        {
+                            logger.LogWarning("Failed to remove stale permission {Permission} from role {Role}: {Errors}",
+                                existingClaim.Value, roleName,
+                                string.Join(", ", result.Errors.Select(e => e.Description)));
+                        }
+                        else
+                        {
+                            logger.LogInformation("Removed stale permission {Permission} from role {Role}", existingClaim.Value, roleName);
+                        }
                     }
                 }
 
@@ -92,7 +113,7 @@ namespace BusTracker.Infrastructure.Seeders
             IConfiguration config,
             ILogger logger)
         {
-            var email    = config["SuperAdmin:Email"];
+            var email = config["SuperAdmin:Email"];
             var password = config["SuperAdmin:Password"];
 
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
@@ -113,7 +134,7 @@ namespace BusTracker.Infrastructure.Seeders
             var user = new ApplicationUser
             {
                 UserName = email,
-                Email    = email,
+                Email = email,
                 EmailConfirmed = true,
             };
 
@@ -125,7 +146,7 @@ namespace BusTracker.Infrastructure.Seeders
                 return;
             }
 
-            var roleResult = await userManager.AddToRoleAsync(user, SuperAdminRole);
+            var roleResult = await userManager.AddToRoleAsync(user, Roles.SuperAdmin);
             if (!roleResult.Succeeded)
             {
                 logger.LogError("Failed to assign SuperAdmin role: {Errors}",

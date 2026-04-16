@@ -34,7 +34,7 @@ namespace BusTracker.Application.Features.Auth.EventHandlers
                 var htmlBody = await _templateService.RenderTemplateAsync("WelcomeEmail.html", model);
 
                 await _emailService.SendEmailAsync(notification.Email, "Welcome to BusTracker!", htmlBody, cancellationToken);
-                
+
                 _logger.LogInformation("Successfully sent Welcome email to {Email}.", notification.Email);
             }
             catch (Exception ex)
