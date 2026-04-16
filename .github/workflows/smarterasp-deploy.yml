@@ -49,9 +49,12 @@ jobs:
         Twilio.AuthToken: ${{ secrets.TWILIO_AUTH_TOKEN }}
         Twilio.FromPhoneNumber: ${{ secrets.TWILIO_FROM_PHONE }}
 
-    - name: Take App Offline
+    - name: Take App Offline & Wait for IIS
       run: |
-        echo "<html><body><h1>Deploying update, back in a minute!</h1></body></html>" > ./publish_folder/app_offline.htm
+        echo "<html><body><h1>Deploying update, back in a minute!</h1></body></html>" > app_offline.htm
+        curl -T app_offline.htm ftp://${{ secrets.FTP_SERVER }}/transittrack/app_offline.htm --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}"
+        echo "Uploaded app_offline.htm. Waiting 30 seconds for IIS to release file locks..."
+        sleep 30
 
     - name: Deploy to SmarterASP via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
