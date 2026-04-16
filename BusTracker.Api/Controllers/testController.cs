@@ -8,6 +8,7 @@ namespace BusTracker.Api.Controllers
     public class testController : ControllerBase
     {
         [HttpGet]
+        [HttpHead]
         public IActionResult Get()
         {
             return Ok("Hello, World!");
