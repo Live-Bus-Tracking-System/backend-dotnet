@@ -105,16 +105,24 @@ namespace BusTracker.Api.Controllers
 
         private void SetTokenCookies(string accessToken, string refreshToken)
         {
-            var cookieOptions = new CookieOptions
+            var accessTokenOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,   // True in production (HTTPS)
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddMinutes(15)
+            };
+
+            var refreshTokenOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
                 SameSite = SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.AddDays(7)
             };
 
-            Response.Cookies.Append("access_token", accessToken, cookieOptions);
-            Response.Cookies.Append("refresh_token", refreshToken, cookieOptions);
+            Response.Cookies.Append("access_token", accessToken, accessTokenOptions);
+            Response.Cookies.Append("refresh_token", refreshToken, refreshTokenOptions);
         }
     }
 
