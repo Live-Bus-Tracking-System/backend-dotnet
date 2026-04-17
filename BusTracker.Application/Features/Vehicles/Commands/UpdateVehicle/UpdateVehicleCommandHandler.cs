@@ -131,12 +131,14 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
             if (complianceDocsRenewed)
             {
                 var activePermit = vehicle.Permits
-                    .Where(p => !p.IsDeleted && p.PermitStatus is PermitStatus.Active or PermitStatus.Pending)
+                    .Where(p => !p.IsDeleted)
                     .OrderByDescending(p => p.CreatedAtUtc)
                     .FirstOrDefault();
 
                 if (activePermit is not null)
                     activePermit.PermitStatus = PermitStatus.Pending;
+
+                vehicle.IsActive = false;
             }
 
             // ── Group 4: Registration notes rebuild ────────────────────────────────
@@ -177,8 +179,10 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
 
             await _db.SaveChangesAsync(cancellationToken);
 
-            // ── Cache migration (silent, after DB commit) ──────────────────────────
-            if (trackerIdChanged)
+            // ── Cache update (silent, after DB commit) ─────────────────────────────
+            if (complianceDocsRenewed)
+                await _cache.DeleteTrackerStateAsync(oldTrackerId);
+            else if (trackerIdChanged)
                 await _cache.MigrateTrackerStateAsync(oldTrackerId, vehicle.TrackerId);
 
             return new VehicleDto(

@@ -1,5 +1,6 @@
 using BusTracker.Application.Common.Exceptions;
 using BusTracker.Application.Common.Interfaces;
+using BusTracker.Application.Common.Models;
 using BusTracker.Application.Features.Vehicles.DTOs;
 using FluentValidation;
 using MediatR;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BusTracker.Application.Features.Vehicles.Queries.GetAllVehicles
 {
-    public class GetAllVehiclesQueryHandler : IRequestHandler<GetAllVehiclesQuery, IEnumerable<VehicleSummaryDto>>
+    public class GetAllVehiclesQueryHandler : IRequestHandler<GetAllVehiclesQuery, PagedResult<VehicleSummaryDto>>
     {
         private readonly IApplicationDbContext _db;
         private readonly ICurrentUserService _currentUser;
@@ -23,7 +24,7 @@ namespace BusTracker.Application.Features.Vehicles.Queries.GetAllVehicles
             _validator = validator;
         }
 
-        public async Task<IEnumerable<VehicleSummaryDto>> Handle(GetAllVehiclesQuery request, CancellationToken cancellationToken)
+        public async Task<PagedResult<VehicleSummaryDto>> Handle(GetAllVehiclesQuery request, CancellationToken cancellationToken)
         {
             var validation = await _validator.ValidateAsync(request, cancellationToken);
             if (!validation.IsValid)
@@ -49,8 +50,12 @@ namespace BusTracker.Application.Features.Vehicles.Queries.GetAllVehicles
             if (!request.IncludeInactive)
                 query = query.Where(v => v.IsActive);
 
-            return await query
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var items = await query
                 .OrderBy(v => v.LicensePlate)
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .Select(v => new VehicleSummaryDto(
                     v.Id,
                     v.OrganizationId,
@@ -60,6 +65,8 @@ namespace BusTracker.Application.Features.Vehicles.Queries.GetAllVehicles
                     v.IsActive,
                     v.CreatedAtUtc))
                 .ToListAsync(cancellationToken);
+
+            return PagedResult<VehicleSummaryDto>.Create(items, totalCount, request.Page, request.PageSize);
         }
     }
 }

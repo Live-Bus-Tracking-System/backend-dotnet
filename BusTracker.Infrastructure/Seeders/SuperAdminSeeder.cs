@@ -54,10 +54,6 @@ namespace BusTracker.Infrastructure.Seeders
                     }
                     logger.LogInformation("Created role: {Role}", roleName);
                 }
-                else
-                {
-                    continue;
-                }
 
                 // Sync permissions into AspNetRoleClaims
                 var role = await roleManager.FindByNameAsync(roleName);

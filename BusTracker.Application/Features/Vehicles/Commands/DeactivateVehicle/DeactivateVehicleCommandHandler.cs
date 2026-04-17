@@ -11,15 +11,18 @@ namespace BusTracker.Application.Features.Vehicles.Commands.DeactivateVehicle
     {
         private readonly IApplicationDbContext _db;
         private readonly ICurrentUserService _currentUser;
+        private readonly IVehicleStateCache _cache;
         private readonly IValidator<DeactivateVehicleCommand> _validator;
 
         public DeactivateVehicleCommandHandler(
             IApplicationDbContext db,
             ICurrentUserService currentUser,
+            IVehicleStateCache cache,
             IValidator<DeactivateVehicleCommand> validator)
         {
             _db = db;
             _currentUser = currentUser;
+            _cache = cache;
             _validator = validator;
         }
 
@@ -36,11 +39,15 @@ namespace BusTracker.Application.Features.Vehicles.Commands.DeactivateVehicle
             if (!_currentUser.IsSuperAdmin && _currentUser.OrganisationId != vehicle.OrganizationId)
                 throw new ForbiddenException();
 
-            vehicle.IsActive = false;
+            if (!vehicle.IsActive)
+                return;
 
+            vehicle.IsActive = false;
             vehicle.AddDomainEvent(new VehicleDeactivatedDomainEvent(vehicle.Id, vehicle.LicensePlate));
 
             await _db.SaveChangesAsync(cancellationToken);
+
+            await _cache.DeleteTrackerStateAsync(vehicle.TrackerId);
         }
     }
 }
