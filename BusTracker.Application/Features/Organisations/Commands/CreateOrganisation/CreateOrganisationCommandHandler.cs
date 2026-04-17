@@ -74,7 +74,8 @@ namespace BusTracker.Application.Features.Organisations.Commands.CreateOrganisat
                 Name = request.Name.Trim(),
                 NormalizedEmail = normalizedEmail,
                 NormalizedPhoneNumber = request.PhoneNumber.Trim(),
-                Type = request.Type,
+                //Type = request.Type, // TODO: for now only public transit allowed plz refracter again
+                Type = OrganizationType.PublicTransit,
                 Status = status,
             };
 
