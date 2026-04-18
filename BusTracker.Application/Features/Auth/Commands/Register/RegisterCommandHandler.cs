@@ -59,7 +59,8 @@ namespace BusTracker.Application.Features.Auth.Commands.Register
                 ExpiresAtUtc  = DateTime.UtcNow.AddDays(7),
                 IpAddress     = request.IpAddress,
                 UserAgent     = request.UserAgent,
-                SecurityStamp = user.SecurityStamp
+                SecurityStamp = user.SecurityStamp,
+                FamilyId      = Guid.NewGuid()
             };
 
             await _authRepository.SaveRefreshTokenAsync(refreshTokenEntity, cancellationToken);

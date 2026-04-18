@@ -76,12 +76,8 @@ namespace BusTracker.Api.Middleware
                 // ── Reuse attack detection ────────────────────────────────
                 if (storedToken is not null && storedToken.IsRevoked)
                 {
-                    var allUserTokens = await authRepository.GetAllTokensForUserAsync(
-                        storedToken.UserId, context.RequestAborted);
-
-                    var activeTokens = allUserTokens.Where(t => !t.IsRevoked).ToList();
-                    if (activeTokens.Count > 0)
-                        await authRepository.RevokeTokensAsync(activeTokens, context.RequestAborted);
+                    if (storedToken.FamilyId.HasValue)
+                        await authRepository.RevokeTokenFamilyAsync(storedToken.FamilyId.Value, context.RequestAborted);
 
                     // TODO: Replace with a proper security audit service
                     // e.g., await _securityAuditService.LogTokenReuseAsync(storedToken.UserId, ip, userAgent, context.RequestAborted);
@@ -145,12 +141,13 @@ namespace BusTracker.Api.Middleware
 
                 var newEntity = new RefreshToken
                 {
-                    UserId          = user.Id,
-                    TokenHash       = newHash,
-                    ExpiresAtUtc    = DateTime.UtcNow.AddDays(7),
-                    IpAddress       = currentIp,
-                    UserAgent       = currentUserAgent,
-                    SecurityStamp   = user.SecurityStamp
+                    UserId        = user.Id,
+                    TokenHash     = newHash,
+                    ExpiresAtUtc  = DateTime.UtcNow.AddDays(7),
+                    IpAddress     = currentIp,
+                    UserAgent     = currentUserAgent,
+                    SecurityStamp = user.SecurityStamp,
+                    FamilyId      = storedToken.FamilyId
                 };
 
                 storedToken.IsRevoked           = true;

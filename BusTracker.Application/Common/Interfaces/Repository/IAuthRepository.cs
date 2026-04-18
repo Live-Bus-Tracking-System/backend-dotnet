@@ -12,5 +12,6 @@ namespace BusTracker.Application.Common.Interfaces.Repository
         Task SaveRefreshTokenAsync(RefreshToken token, CancellationToken cancellationToken);
         Task UpdateRefreshTokenAsync(RefreshToken token, CancellationToken cancellationToken);
         Task RotateRefreshTokenAsync(RefreshToken toRevoke, RefreshToken toCreate, CancellationToken cancellationToken);
+        Task RevokeTokenFamilyAsync(Guid familyId, CancellationToken cancellationToken);
     }
 }

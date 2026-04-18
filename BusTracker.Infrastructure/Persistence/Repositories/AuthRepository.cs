@@ -61,5 +61,21 @@ namespace BusTracker.Infrastructure.Persistence.Repositories
             _dbContext.RefreshTokens.Add(toCreate);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
+
+        public async Task RevokeTokenFamilyAsync(Guid familyId, CancellationToken cancellationToken)
+        {
+            var familyTokens = await _dbContext.RefreshTokens
+                .Where(t => t.FamilyId == familyId && !t.IsRevoked)
+                .ToListAsync(cancellationToken);
+
+            foreach (var token in familyTokens)
+            {
+                token.IsRevoked    = true;
+                token.RevokedAtUtc = DateTime.UtcNow;
+            }
+
+            if (familyTokens.Count > 0)
+                await _dbContext.SaveChangesAsync(cancellationToken);
+        }
     }
 }

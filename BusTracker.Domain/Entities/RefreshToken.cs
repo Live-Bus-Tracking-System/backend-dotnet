@@ -23,6 +23,8 @@ namespace BusTracker.Domain.Entities
 
         public string? SecurityStamp { get; set; }
 
+        public Guid? FamilyId { get; set; }
+
         public bool IsActive => !IsRevoked && DateTime.UtcNow < ExpiresAtUtc;
     }
 }
