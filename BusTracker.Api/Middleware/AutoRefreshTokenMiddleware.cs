@@ -1,9 +1,6 @@
 using BusTracker.Application.Common.Interfaces;
 using BusTracker.Application.Common.Interfaces.Repository;
 using BusTracker.Domain.Entities;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System.IdentityModel.Tokens.Jwt;
 
 namespace BusTracker.Api.Middleware
@@ -14,7 +11,7 @@ namespace BusTracker.Api.Middleware
         private readonly IConfiguration _config;
         private readonly ILogger<AutoRefreshTokenMiddleware> _logger;
 
-        // ── Fix #4: Skip-list — avoids unnecessary JWT reads and DB calls on non-API paths.
+        // ── Skip-list — avoids unnecessary JWT reads and DB calls on non-API paths.
         private static readonly HashSet<string> _skipPaths =
             new(StringComparer.OrdinalIgnoreCase) { "/health", "/metrics", "/favicon.ico" };
 
@@ -55,8 +52,8 @@ namespace BusTracker.Api.Middleware
             bool needsRefresh = false;
 
             // ── Proactive refresh window ──────────────────────────────────
-            var earlyRefreshMins = double.TryParse(
-                _config["Jwt:EarlyRefreshThresholdMinutes"], out var m) ? m : 2.0;
+            var earlyRefreshMinsStr = _config["Jwt:EarlyRefreshThresholdMinutes"] ?? throw new InvalidOperationException("Jwt:EarlyRefreshThresholdMinutes is missing.");
+            if (!int.TryParse(earlyRefreshMinsStr, out var earlyRefreshMins)) earlyRefreshMins = 2;
             var expiryThreshold = TimeSpan.FromMinutes(earlyRefreshMins);
 
             if (!string.IsNullOrEmpty(tokenStr) && tokenHandler.CanReadToken(tokenStr))
