@@ -19,6 +19,12 @@ namespace BusTracker.Infrastructure.Persistence.Repositories
                 .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && t.IsRevoked == false && t.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);
         }
 
+        public async Task<RefreshToken?> GetRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken)
+        {
+            return await _dbContext.RefreshTokens
+                .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+        }
+
         public async Task<IEnumerable<RefreshToken>> GetAllTokensForUserAsync(string userId, CancellationToken cancellationToken)
         {
             return await _dbContext.RefreshTokens
@@ -46,6 +52,13 @@ namespace BusTracker.Infrastructure.Persistence.Repositories
         public async Task UpdateRefreshTokenAsync(RefreshToken token, CancellationToken cancellationToken)
         {
             _dbContext.RefreshTokens.Update(token);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task RotateRefreshTokenAsync(RefreshToken toRevoke, RefreshToken toCreate, CancellationToken cancellationToken)
+        {
+            _dbContext.RefreshTokens.Update(toRevoke);
+            _dbContext.RefreshTokens.Add(toCreate);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
     }

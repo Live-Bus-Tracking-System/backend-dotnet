@@ -79,6 +79,7 @@ namespace BusTracker.Api.Controllers
 
             if (!result.IsValid)
                 return Unauthorized(new { Error = result.Error ?? "Token is invalid or has expired." });
+            // helloFix
 
             // We need to fetch + decrypt the URL using the documentId from the token
             // The DecryptedUrl isn't stored in the token — we decrypt from DB at redirect time
