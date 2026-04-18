@@ -21,6 +21,8 @@ namespace BusTracker.Domain.Entities
 
         public string? ReplacedByTokenHash { get; set; }
 
+        public string? SecurityStamp { get; set; }
+
         public bool IsActive => !IsRevoked && DateTime.UtcNow < ExpiresAtUtc;
     }
 }

@@ -234,6 +234,7 @@ namespace BusTracker.Infrastructure.Services
                     throw new CustomValidationException(errors);
                 }
             }
+            await _userManager.UpdateSecurityStampAsync(user);
         }
     }
 }

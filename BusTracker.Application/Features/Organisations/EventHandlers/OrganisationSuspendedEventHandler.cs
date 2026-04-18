@@ -25,6 +25,11 @@ namespace BusTracker.Application.Features.Organisations.EventHandlers
                 "[Org Suspended] OrganisationId={OrganisationId} | Name={Name} | Email={Email} | Reason={Reason}",
                 e.OrganisationId, e.Name, e.Email, e.Reason ?? "No reason provided");
 
+            // TODO: Bulk SecurityStamp bump — inject UserManager<ApplicationUser> and IApplicationDbContext,
+            // fetch all users where OrganizationId == e.OrganisationId, and call
+            // UpdateSecurityStampAsync(user) for each. This ensures every org member's
+            // refresh token is rejected at next rotation, killing all active sessions.
+
             return Task.CompletedTask;
         }
     }

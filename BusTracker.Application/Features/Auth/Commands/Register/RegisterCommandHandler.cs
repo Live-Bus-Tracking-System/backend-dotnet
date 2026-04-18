@@ -54,11 +54,12 @@ namespace BusTracker.Application.Features.Auth.Commands.Register
 
             var refreshTokenEntity = new RefreshToken
             {
-                UserId = user.Id,
-                TokenHash = refreshTokenHash,
-                ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
-                IpAddress = request.IpAddress,
-                UserAgent = request.UserAgent
+                UserId        = user.Id,
+                TokenHash     = refreshTokenHash,
+                ExpiresAtUtc  = DateTime.UtcNow.AddDays(7),
+                IpAddress     = request.IpAddress,
+                UserAgent     = request.UserAgent,
+                SecurityStamp = user.SecurityStamp
             };
 
             await _authRepository.SaveRefreshTokenAsync(refreshTokenEntity, cancellationToken);

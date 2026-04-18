@@ -128,6 +128,18 @@ namespace BusTracker.Api.Middleware
                 }
 
                 var user = await identityService.GetUserByIdAsync(storedToken.UserId);
+
+                if (storedToken.SecurityStamp != user.SecurityStamp)
+                {
+                    storedToken.IsRevoked    = true;
+                    storedToken.RevokedAtUtc = DateTime.UtcNow;
+                    await authRepository.UpdateRefreshTokenAsync(storedToken, context.RequestAborted);
+
+                    ClearAuthCookies(context);
+                    await _next(context);
+                    return;
+                }
+
                 var newAccessToken = jwtGenerator.GenerateAccessToken(user);
                 var (newRawRefreshToken, newHash) = jwtGenerator.GenerateRefreshToken();
 
@@ -138,6 +150,7 @@ namespace BusTracker.Api.Middleware
                     ExpiresAtUtc    = DateTime.UtcNow.AddDays(7),
                     IpAddress       = currentIp,
                     UserAgent       = currentUserAgent,
+                    SecurityStamp   = user.SecurityStamp
                 };
 
                 storedToken.IsRevoked           = true;
