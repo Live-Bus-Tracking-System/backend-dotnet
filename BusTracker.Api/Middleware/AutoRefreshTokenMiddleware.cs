@@ -160,7 +160,7 @@ namespace BusTracker.Api.Middleware
                 {
                     HttpOnly = true,
                     Secure   = true,
-                    SameSite = SameSiteMode.Strict,
+                    SameSite = SameSiteMode.None,
                     Expires  = DateTime.UtcNow.AddDays(7)
                 };
 
@@ -183,7 +183,7 @@ namespace BusTracker.Api.Middleware
                 Expires  = DateTime.UtcNow.AddDays(-1),
                 HttpOnly = true,
                 Secure   = true,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.None
             };
             context.Response.Cookies.Append("access_token", "", expired);
             context.Response.Cookies.Append("refresh_token", "", expired);

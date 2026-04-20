@@ -40,14 +40,37 @@ namespace BusTracker.Api
             builder.Services.AddSignalR();
             builder.Services.AddSingleton<ILiveTrackingBroadcaster, SignalRLiveTrackingBroadcaster>();
 
-            // ── CORS — allow local HTML test page (file://) to reach the SignalR hub ──
+            // ── CORS ──────────────────────────────────────────────────────────────────
+            // CURRENT: wildcard origin — convenient for dev/testing (Swagger, local Flutter, etc.)
+            // AllowCredentials() is required for cookie-based auth to work cross-origin.
+            //
+            // FOR PRODUCTION: switch to the explicit-origins block below.
+            // Add your Flutter web app's deployed URL to Cors:AllowedOrigins in appsettings.json
+            // and flip the policy name in app.UseCors(...) further below.
             builder.Services.AddCors(options =>
             {
+                // ── Dev / current: open wildcard ─────────────────────────────────────
                 options.AddPolicy("DevTestPolicy", policy =>
                     policy.SetIsOriginAllowed(_ => true)
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials()); // Required for SignalR + cookies
+
+                // ── Production: explicit origin allowlist ─────────────────────────────
+                // Reads from  "Cors": { "AllowedOrigins": [ "https://your-flutter-app.com" ] }
+                // Switch app.UseCors("DevTestPolicy") → app.UseCors("ProductionPolicy") when deploying.
+                //
+                // options.AddPolicy("ProductionPolicy", policy =>
+                // {
+                //     var origins = builder.Configuration
+                //         .GetSection("Cors:AllowedOrigins")
+                //         .Get<string[]>() ?? [];
+                //
+                //     policy.WithOrigins(origins)
+                //           .AllowAnyMethod()
+                //           .AllowAnyHeader()
+                //           .AllowCredentials(); // Required for SameSite=None cookies
+                // });
             });
 
             // ── Rate limiter ──────────────────────────────────────────────────────
