@@ -139,8 +139,17 @@ namespace BusTracker.Infrastructure
                 .AddPolicy("org:suspend",        p => p.RequireClaim("permission", "org:suspend"));
 
             // ── Redis ─────────────────────────────────────────────────────────────
-            services.AddSingleton<IConnectionMultiplexer>(sp =>
-                ConnectionMultiplexer.Connect(configuration.GetConnectionString("RedisConnection")!));
+            services.AddSingleton<IConnectionMultiplexer>(sp => 
+            {
+                var connStr = configuration.GetConnectionString("RedisConnection");
+                if (string.IsNullOrEmpty(connStr))
+                    throw new InvalidOperationException("RedisConnection string is missing or empty.");
+
+                var options = ConfigurationOptions.Parse(connStr);
+                options.AbortOnConnectFail = false;
+
+                return ConnectionMultiplexer.Connect(options);
+            });
 
             // ── Application services ──────────────────────────────────────────────
             services.AddScoped<IVehicleStateCache, RedisVehicleStateCache>();
