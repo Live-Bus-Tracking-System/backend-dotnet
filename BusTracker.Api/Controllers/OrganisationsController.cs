@@ -68,12 +68,7 @@ namespace BusTracker.Api.Controllers
         [HasPermission(Permissions.Orgs.Suspend)]
         public async Task<IActionResult> Suspend(Guid id, [FromBody] SuspendOrganisationCommand command)
         {
-            if (id != command.OrganisationId)
-            {
-                return BadRequest("ID in route must match ID in payload.");
-            }
-
-            await _sender.Send(command);
+            await _sender.Send(command with { OrganisationId = id });
             return NoContent();
         }
 
