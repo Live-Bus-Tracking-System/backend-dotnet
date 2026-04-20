@@ -61,7 +61,7 @@ namespace BusTracker.Application.Features.Organisations.Commands.InitiateOrgDele
             var isPasswordValid = await _identityService.CheckPasswordAsync(_currentUser.UserId, request.Password);
             if (!isPasswordValid)
             {
-                throw new UnauthorizedException("Invalid password.");
+                throw new ForbiddenException("Invalid password.");
             }
 
             var otpCode = new Random().Next(100000, 999999).ToString();

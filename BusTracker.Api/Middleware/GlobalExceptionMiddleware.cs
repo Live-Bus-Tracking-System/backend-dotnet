@@ -81,6 +81,28 @@ namespace BusTracker.Api.Middleware
                     };
                     break;
 
+                case ForbiddenException forbiddenException:
+                    context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                    response = new ApiResponse<object?>
+                    {
+                        Success = false,
+                        Message = "Access Denied.",
+                        Errors = { forbiddenException.Message },
+                        Meta = new ApiMeta { RequestId = context.TraceIdentifier }
+                    };
+                    break;
+
+                case BadRequestException badRequestException:
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    response = new ApiResponse<object?>
+                    {
+                        Success = false,
+                        Message = "Bad Request.",
+                        Errors = { badRequestException.Message },
+                        Meta = new ApiMeta { RequestId = context.TraceIdentifier }
+                    };
+                    break;
+
                 default:
                     context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                     response = new ApiResponse<object?>
