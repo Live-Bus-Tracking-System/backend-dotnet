@@ -63,7 +63,7 @@ namespace BusTracker.Application.Common.Auth
             Routes.Create, Routes.Read,
             Vehicles.Create, Vehicles.Read, Vehicles.Update, Vehicles.Delete, Vehicles.Deactivate,
             Permits.Request, Permits.Read,
-            Orgs.Read, Orgs.Update
+            Orgs.Read, Orgs.Update, Orgs.Delete
         ];
 
         public static readonly IReadOnlyList<string> OrgStaffPermissions =
