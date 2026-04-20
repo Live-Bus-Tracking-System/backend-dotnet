@@ -32,7 +32,7 @@ namespace BusTracker.Application.Features.Organisations.Commands.DeleteOrganisat
             }
 
             if (!_currentUser.IsSuperAdmin)
-                throw new ForbiddenException("Only SuperAdmin can delete organisations.");
+                throw new ForbiddenException("Only SuperAdmin can use this direct deletion endpoint. Organisation Admins must use the multi-step MFA deletion flow.");
 
             var org = await _db.Organizations
                 .FirstOrDefaultAsync(o => o.Id == request.OrganisationId && !o.IsDeleted, cancellationToken)

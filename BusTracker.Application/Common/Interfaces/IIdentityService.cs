@@ -17,5 +17,9 @@ namespace BusTracker.Application.Common.Interfaces
         Task<UserAuthDto> GetUserByIdAsync(string userId);
 
         Task AssignUserToOrganisationAsync(string userId, Guid organisationId, string role);
+
+        Task RemoveUsersFromOrganisationAsync(Guid organisationId, CancellationToken cancellationToken);
+
+        Task<bool> CheckPasswordAsync(string userId, string password);
     }
 }

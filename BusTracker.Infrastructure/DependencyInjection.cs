@@ -144,6 +144,7 @@ namespace BusTracker.Infrastructure
 
             // ── Application services ──────────────────────────────────────────────
             services.AddScoped<IVehicleStateCache, RedisVehicleStateCache>();
+            services.AddScoped<IOrgDeletionIntentCache, RedisOrgDeletionIntentCache>();
             services.AddSingleton<ITrackerSecurityService, TrackerSecurityService>();
             services.AddScoped<ITrackingRepository, TrackingRepository>();
             services.AddSingleton<ITrackingEventChannel, TrackingEventChannel>();

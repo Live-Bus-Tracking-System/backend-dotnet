@@ -108,17 +108,17 @@ namespace BusTracker.Api.Controllers
             var accessTokenOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(15)
+                Secure   = true,
+                SameSite = SameSiteMode.None,
+                Expires  = DateTime.UtcNow.AddMinutes(15)
             };
 
             var refreshTokenOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(7)
+                Secure   = true,
+                SameSite = SameSiteMode.None,
+                Expires  = DateTime.UtcNow.AddDays(7)
             };
 
             Response.Cookies.Append("access_token", accessToken, accessTokenOptions);

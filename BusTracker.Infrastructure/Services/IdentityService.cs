@@ -1,3 +1,4 @@
+using BusTracker.Application.Common.Auth;
 using BusTracker.Application.Common.Exceptions;
 using BusTracker.Application.Common.Interfaces;
 using BusTracker.Application.Common.Models;
@@ -235,6 +236,44 @@ namespace BusTracker.Infrastructure.Services
                 }
             }
             await _userManager.UpdateSecurityStampAsync(user);
+        }
+
+        public async Task<bool> CheckPasswordAsync(string userId, string password)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return false;
+
+            return await _userManager.CheckPasswordAsync(user, password);
+        }
+
+        public async Task RemoveUsersFromOrganisationAsync(Guid organisationId, CancellationToken cancellationToken)
+        {
+            var users = await _userManager.Users
+                .Where(u => u.OrganizationId == organisationId)
+                .ToListAsync(cancellationToken);
+
+            foreach (var user in users)
+            {
+                var currentRoles = await _userManager.GetRolesAsync(user);
+                
+                // Remove existing roles
+                if (currentRoles.Any())
+                {
+                    await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                }
+
+                // Add Passenger baseline role
+                await _userManager.AddToRoleAsync(user, Roles.Passenger);
+
+                // Detach from Organisation
+                user.OrganizationId = null;
+
+                // Force all current sessions (tokens) to become invalid
+                await _userManager.UpdateSecurityStampAsync(user);
+
+                // Persist changes
+                await _userManager.UpdateAsync(user);
+            }
         }
     }
 }

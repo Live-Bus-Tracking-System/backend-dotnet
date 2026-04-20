@@ -3,6 +3,9 @@ using BusTracker.Application.Common.Auth;
 using BusTracker.Application.Features.Organisations.Commands.ActivateOrganisation;
 using BusTracker.Application.Features.Organisations.Commands.CreateOrganisation;
 using BusTracker.Application.Features.Organisations.Commands.DeleteOrganisation;
+using BusTracker.Application.Features.Organisations.Commands.InitiateOrgDeletion;
+using BusTracker.Application.Features.Organisations.Commands.VerifyOrgDeletionOtp;
+using BusTracker.Application.Features.Organisations.Commands.ConfirmOrgDeletion;
 using BusTracker.Application.Features.Organisations.Commands.SuspendOrganisation;
 using BusTracker.Application.Features.Organisations.Commands.UpdateOrganisation;
 using BusTracker.Application.Features.Organisations.Queries.GetAllOrganisations;
@@ -79,6 +82,34 @@ namespace BusTracker.Api.Controllers
         public async Task<IActionResult> Delete(Guid id)
         {
             await _sender.Send(new DeleteOrganisationCommand(id));
+            return NoContent();
+        }
+
+        [HttpPost("{id}/deletion/initiate")]
+        [HasPermission(Permissions.Orgs.Delete)]
+        public async Task<IActionResult> InitiateDeletion(Guid id, [FromBody] InitiateOrgDeletionCommand command)
+        {
+            var result = await _sender.Send(command with { OrganisationId = id });
+            return Ok(result);
+        }
+
+        [HttpPost("{id}/deletion/verify-otp")]
+        [HasPermission(Permissions.Orgs.Delete)]
+        public async Task<IActionResult> VerifyDeletionOtp(Guid id, [FromBody] VerifyOrgDeletionOtpCommand command)
+        {
+            var result = await _sender.Send(command with { OrganisationId = id });
+            return Ok(result);
+        }
+
+        [HttpPost("{id}/deletion/confirm")]
+        [HasPermission(Permissions.Orgs.Delete)]
+        public async Task<IActionResult> ConfirmDeletion(Guid id, [FromBody] ConfirmOrgDeletionCommand command)
+        {
+            await _sender.Send(command with { OrganisationId = id });
+
+            Response.Cookies.Delete("access_token");
+            Response.Cookies.Delete("refresh_token");
+
             return NoContent();
         }
     }
