@@ -9,8 +9,8 @@ namespace BusTracker.Application.Features.Vehicles.Commands.RegisterVehicle
         string? Name,
         int? Capacity,
 
-        string RegistrationCertificateUrl,
-        string PermitCertificateUrl,
+        string RegistrationCertificateObjectKey,
+        string PermitCertificateObjectKey,
 
         string? RegistrationCertificateNumber,
         string? PermitCertificateNumber,

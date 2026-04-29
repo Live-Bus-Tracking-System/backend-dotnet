@@ -66,66 +66,6 @@ namespace BusTracker.Infrastructure.Services
             return Encoding.UTF8.GetString(plainBytes);
         }
 
-        // ── JWT Proxy Access Tokens ───────────────────────────────────────────────
-
-        public string GenerateAccessToken(Guid documentId, string requestorUserId, TimeSpan? expiresIn = null)
-        {
-            var secret = GetSigningSecret();
-            var expiry = expiresIn ?? TimeSpan.FromMinutes(
-                int.TryParse(_config["Documents:AccessTokenExpiryMinutes"], out var mins) ? mins : 5);
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim("doc_id",   documentId.ToString()),
-                new Claim("req_by",   requestorUserId),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            };
-
-            var token = new JwtSecurityToken(
-                issuer:   "bustracker-docs",
-                audience: "bustracker-docs",
-                claims:   claims,
-                expires:  DateTime.UtcNow.Add(expiry),
-                signingCredentials: credentials);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-        public DocumentAccessResult ValidateAccessToken(string token)
-        {
-            try
-            {
-                var secret = GetSigningSecret();
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-
-                var handler = new JwtSecurityTokenHandler();
-                var principal = handler.ValidateToken(token, new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey         = key,
-                    ValidateIssuer           = true,
-                    ValidIssuer              = "bustracker-docs",
-                    ValidateAudience         = true,
-                    ValidAudience            = "bustracker-docs",
-                    ValidateLifetime         = true,
-                    ClockSkew                = TimeSpan.Zero,
-                }, out _);
-
-                var docIdClaim = principal.FindFirst("doc_id")?.Value;
-                if (!Guid.TryParse(docIdClaim, out var documentId))
-                    return new(false, Guid.Empty, null, "Invalid document ID in token.");
-
-                return new(true, documentId, null, null);
-            }
-            catch (Exception ex)
-            {
-                return new(false, Guid.Empty, null, ex.Message);
-            }
-        }
-
         // ── Helpers ───────────────────────────────────────────────────────────────
 
         private byte[] GetEncryptionKey()
@@ -138,12 +78,6 @@ namespace BusTracker.Infrastructure.Services
             var src = Encoding.UTF8.GetBytes(keyStr);
             Buffer.BlockCopy(src, 0, keyBytes, 0, Math.Min(src.Length, 32));
             return keyBytes;
-        }
-
-        private string GetSigningSecret()
-        {
-            return _config["Documents:SigningSecret"]
-                ?? throw new InvalidOperationException("Documents:SigningSecret is not configured.");
         }
     }
 }

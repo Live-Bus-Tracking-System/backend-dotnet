@@ -105,15 +105,15 @@ namespace BusTracker.Application.Features.Vehicles.Commands.RegisterVehicle
             if (requiresVerification)
             {
                 // ── Step 1: Attempt AI extraction on both certificates ────────────────
-                var regTask = _documentIntelligence.ExtractAsync(request.RegistrationCertificateUrl, cancellationToken);
-                var permitTask = _documentIntelligence.ExtractAsync(request.PermitCertificateUrl, cancellationToken);
+                var regTask = _documentIntelligence.ExtractAsync(request.RegistrationCertificateObjectKey, cancellationToken);
+                var permitTask = _documentIntelligence.ExtractAsync(request.PermitCertificateObjectKey, cancellationToken);
                 await Task.WhenAll(regTask, permitTask);
                 var regExtraction = await regTask;
                 var permitExtraction = await permitTask;
 
-                // ── Step 2: Encrypt certificate URLs before storing ──────────────────
-                var encryptedRegUrl    = _documentService.EncryptUrl(request.RegistrationCertificateUrl);
-                var encryptedPermitUrl = _documentService.EncryptUrl(request.PermitCertificateUrl);
+                // ── Step 2: Encrypt certificate object keys before storing ──────────────────
+                var encryptedRegUrl    = _documentService.EncryptUrl(request.RegistrationCertificateObjectKey);
+                var encryptedPermitUrl = _documentService.EncryptUrl(request.PermitCertificateObjectKey);
 
                 // ── Step 3: Create VehiclePermit (Pending status) ────────────────────
                 permit = new VehiclePermit

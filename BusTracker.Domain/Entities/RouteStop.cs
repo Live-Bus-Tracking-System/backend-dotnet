@@ -1,4 +1,4 @@
-﻿using BusTracker.Domain.Common;
+using BusTracker.Domain.Common;
 
 namespace BusTracker.Domain.Entities
 {
@@ -13,5 +13,8 @@ namespace BusTracker.Domain.Entities
         public int StopSequence { get; set; }
 
         public double? DistanceToNextStopMeters { get; set; }
+
+        // OSRM encoded polyline string representing the exact driving roads for this segment
+        public string? PathToNextStop { get; set; }
     }
 }

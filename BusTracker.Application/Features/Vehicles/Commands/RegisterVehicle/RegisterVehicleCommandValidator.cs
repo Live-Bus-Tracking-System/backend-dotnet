@@ -27,13 +27,13 @@ namespace BusTracker.Application.Features.Vehicles.Commands.RegisterVehicle
                 .LessThanOrEqualTo(200).WithMessage("Capacity must not exceed 200.")
                 .When(x => x.Capacity is not null);
 
-            RuleFor(x => x.RegistrationCertificateUrl)
-                .NotEmpty().WithMessage("Vehicle registration certificate URL is required.")
-                .Must(BeValidHttpsUrl).WithMessage("Registration certificate URL must be a valid HTTPS URL.");
+            RuleFor(x => x.RegistrationCertificateObjectKey)
+                .NotEmpty().WithMessage("Vehicle registration certificate object key is required.")
+                .Must(BeValidObjectKey).WithMessage("Registration certificate object key format is invalid.");
 
-            RuleFor(x => x.PermitCertificateUrl)
-                .NotEmpty().WithMessage("Permit certificate URL is required.")
-                .Must(BeValidHttpsUrl).WithMessage("Permit certificate URL must be a valid HTTPS URL.");
+            RuleFor(x => x.PermitCertificateObjectKey)
+                .NotEmpty().WithMessage("Permit certificate object key is required.")
+                .Must(BeValidObjectKey).WithMessage("Permit certificate object key format is invalid.");
 
             RuleFor(x => x.RegistrationCertificateNumber)
                 .MaximumLength(50).WithMessage("")
@@ -60,10 +60,14 @@ namespace BusTracker.Application.Features.Vehicles.Commands.RegisterVehicle
                 .MaximumLength(100).When(x => x.IntendedRouteName is not null);
         }
 
-        private static bool BeValidHttpsUrl(string url)
+        private static bool BeValidObjectKey(string key)
         {
-            return Uri.TryCreate(url, UriKind.Absolute, out var uri)
-                && uri.Scheme == Uri.UriSchemeHttps;
+            if (string.IsNullOrWhiteSpace(key)) return false;
+            
+            // Basic path traversal / malformed key prevention
+            return !key.Contains("..") && 
+                   !key.Contains("\\") && 
+                   !key.StartsWith("/");
         }
     }
 }

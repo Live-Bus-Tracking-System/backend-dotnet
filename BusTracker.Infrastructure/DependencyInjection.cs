@@ -112,7 +112,21 @@ namespace BusTracker.Infrastructure
                 {
                     OnMessageReceived = context =>
                     {
-                        context.Token = context.Request.Cookies["access_token"];
+                        // 1. Try to get the token from the HttpOnly cookie
+                        var token = context.Request.Cookies["access_token"];
+
+                        // 2. Fallback for SignalR WebSockets (often sent via query string since JS WebSocket API can't set headers/cookies cross-origin easily in all scenarios)
+                        var path = context.HttpContext.Request.Path;
+                        if (string.IsNullOrEmpty(token) && path.StartsWithSegments("/hubs"))
+                        {
+                            var accessToken = context.Request.Query["access_token"];
+                            if (!string.IsNullOrEmpty(accessToken))
+                            {
+                                token = accessToken;
+                            }
+                        }
+
+                        context.Token = token;
                         return Task.CompletedTask;
                     }
                 };
@@ -166,8 +180,9 @@ namespace BusTracker.Infrastructure
             services.AddScoped<IEventService, EventService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-            // ── Document Security ─────────────────────────────────────────────────
+            // ── Document Security & Storage ───────────────────────────────────────
             services.AddSingleton<IDocumentService, DocumentService>();
+            services.AddSingleton<IStorageService, B2StorageService>();
             services.AddScoped<IDocumentIntelligenceService, DocumentIntelligenceService>();
 
             // ── Messaging & Templates ─────────────────────────────────────────────

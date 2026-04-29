@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.22" />
     <PackageReference Include="Dapper" Version="2.1.66" />
     <PackageReference Include="Handlebars.Net" Version="2.1.6" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />

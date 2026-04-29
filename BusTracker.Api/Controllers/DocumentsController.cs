@@ -1,5 +1,6 @@
 using BusTracker.Application.Common.Interfaces;
 using BusTracker.Application.Common.Interfaces.Services;
+using BusTracker.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,79 +17,46 @@ namespace BusTracker.Api.Controllers
     [Authorize]
     public class DocumentsController : ControllerBase
     {
-        private readonly IApplicationDbContext _db;
-        private readonly IDocumentService _documentService;
-        private readonly ICurrentUserService _currentUser;
+        private readonly ISender _sender;
+        private readonly IStorageService _storageService;
 
-        public DocumentsController(
-            IApplicationDbContext db,
-            IDocumentService documentService,
-            ICurrentUserService currentUser)
+        public DocumentsController(ISender sender, IStorageService storageService)
         {
-            _db = db;
-            _documentService = documentService;
-            _currentUser = currentUser;
+            _sender = sender;
+            _storageService = storageService;
         }
 
         /// <summary>
-        /// Requests a short-lived access token for a compliance document.
-        /// Only the owning organisation's members or a SuperAdmin can access.
-        /// The returned token is valid for 5 minutes.
+        /// Generates a direct-to-cloud presigned upload URL for the frontend.
         /// </summary>
-        [HttpGet("{documentId}/access-token")]
-        public async Task<IActionResult> GetAccessToken(Guid documentId, CancellationToken cancellationToken)
+        [HttpGet("upload-url")]
+        public async Task<IActionResult> GetUploadUrl([FromQuery] string contentType, [FromQuery] string extension)
         {
-            var doc = await _db.ComplianceDocuments
-                .AsNoTracking()
-                .FirstOrDefaultAsync(d => d.Id == documentId && !d.IsDeleted, cancellationToken);
-
-            if (doc is null)
-                return NotFound();
-
-            // Enforce access: SuperAdmin or member of the owning entity
-            // For Vehicle documents, check OrganizationId via the Vehicle entity
-            if (!_currentUser.IsSuperAdmin)
-            {
-                var vehicle = await _db.Vehicles
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(v => v.Id == doc.EntityId && !v.IsDeleted, cancellationToken);
-
-                if (vehicle is null || vehicle.OrganizationId != _currentUser.OrganisationId)
-                    return Forbid();
-            }
-
-            var decryptedUrl = _documentService.DecryptUrl(doc.DocumentUrl);
-            var accessToken  = _documentService.GenerateAccessToken(documentId, _currentUser.UserId!);
-
-            // Return the token — the client uses it in the /view endpoint
-            return Ok(new { AccessToken = accessToken, ExpiresInSeconds = 300 });
+            return Ok(await _sender.Send(new BusTracker.Application.Features.Documents.Queries.GetUploadUrl.GetUploadUrlQuery(contentType, extension)));
         }
 
         /// <summary>
-        /// Validates the access token and issues an HTTP 302 redirect to the actual document URL.
-        /// Tokens are single-use equivalent (5-minute TTL, no caching headers).
+        /// Generates a time-limited (5-minute) direct-to-cloud presigned URL to view a compliance document.
         /// </summary>
-        [HttpGet("view")]
-        [AllowAnonymous] // Token itself is the auth mechanism here
-        public IActionResult ViewDocument([FromQuery] string t)
+        [HttpGet("{documentId}/view")]
+        public async Task<IActionResult> ViewDocument(Guid documentId)
         {
-            if (string.IsNullOrWhiteSpace(t))
-                return BadRequest("Access token is required.");
+            var presignedUrl = await _sender.Send(new BusTracker.Application.Features.Documents.Queries.GetDocumentViewUrl.GetDocumentViewUrlQuery(documentId));
+            return Redirect(presignedUrl);
+        }
 
-            var result = _documentService.ValidateAccessToken(t);
+        /// <summary>
+        /// TESTING ONLY: Generates a presigned URL directly from an ObjectKey.
+        /// </summary>
+        [HttpGet("test-view")]
+        [AllowAnonymous]
+        public async Task<IActionResult> TestViewDocumentByObjectKey([FromQuery] string objectKey)
+        {
+            if (string.IsNullOrWhiteSpace(objectKey))
+                return BadRequest("ObjectKey is required.");
 
-            if (!result.IsValid)
-                return Unauthorized(new { Error = result.Error ?? "Token is invalid or has expired." });
-            // helloFix
-
-            // We need to fetch + decrypt the URL using the documentId from the token
-            // The DecryptedUrl isn't stored in the token — we decrypt from DB at redirect time
-            // This is by design: the token proves identity, the DB holds the encrypted URL
-            return Accepted(new
-            {
-                Message = "Token valid. Use GET /api/documents/{id}/access-token to get the redirect URL.",
-                DocumentId = result.DocumentId
-            });
+            var presignedUrl = await _storageService.GeneratePresignedDownloadUrlAsync(objectKey);
+            return Redirect(presignedUrl);
         }
     }
 }

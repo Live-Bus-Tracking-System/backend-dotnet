@@ -95,12 +95,12 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
                 vehicle.Capacity = request.Capacity;
 
             // ── Group 2: Registration certificate renewal ──────────────────────────
-            if (request.RegistrationCertificateUrl is not null)
+            if (request.RegistrationCertificateObjectKey is not null)
             {
                 await RenewComplianceDocumentAsync(
                     vehicle.Id,
                     ComplianceDocumentType.VehicleRegistration,
-                    request.RegistrationCertificateUrl,
+                    request.RegistrationCertificateObjectKey,
                     request.RegistrationCertificateNumber,
                     request.RegistrationCertIssuedBy,
                     request.RegistrationCertIssuedAt,
@@ -111,12 +111,12 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
             }
 
             // ── Group 3: Permit certificate renewal ────────────────────────────────
-            if (request.PermitCertificateUrl is not null)
+            if (request.PermitCertificateObjectKey is not null)
             {
                 await RenewComplianceDocumentAsync(
                     vehicle.Id,
                     ComplianceDocumentType.RoutePermitDoc,
-                    request.PermitCertificateUrl,
+                    request.PermitCertificateObjectKey,
                     request.PermitCertificateNumber,
                     request.PermitCertIssuedBy,
                     request.PermitCertIssuedAt,
@@ -196,15 +196,15 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
         private async Task RenewComplianceDocumentAsync(
             Guid vehicleId,
             ComplianceDocumentType docType,
-            string rawUrl,
+            string objectKey,
             string? certNumber,
             string? issuedBy,
             DateOnly? issuedAt,
             DateOnly? expiresAt,
             CancellationToken cancellationToken)
         {
-            var encryptedUrl = _documentService.EncryptUrl(rawUrl);
-            var extraction   = await _documentIntelligence.ExtractAsync(rawUrl, cancellationToken);
+            var encryptedUrl = _documentService.EncryptUrl(objectKey);
+            var extraction   = await _documentIntelligence.ExtractAsync(objectKey, cancellationToken);
 
             var existing = await _db.ComplianceDocuments
                 .FirstOrDefaultAsync(d => d.EntityId == vehicleId

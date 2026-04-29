@@ -11,13 +11,13 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
         string? Name,
         int? Capacity,
 
-        string? RegistrationCertificateUrl,
+        string? RegistrationCertificateObjectKey,
         string? RegistrationCertificateNumber,
         string? RegistrationCertIssuedBy,
         DateOnly? RegistrationCertIssuedAt,
         DateOnly? RegistrationCertExpiresAt,
 
-        string? PermitCertificateUrl,
+        string? PermitCertificateObjectKey,
         string? PermitCertificateNumber,
         string? PermitCertIssuedBy,
         DateOnly? PermitCertIssuedAt,

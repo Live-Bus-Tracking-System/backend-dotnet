@@ -37,10 +37,10 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
                 .When(x => x.Capacity is not null);
 
             // ── Group 2: Registration cert renewal ────────────────────────────
-            RuleFor(x => x.RegistrationCertificateUrl)
-                .Must(BeValidHttpsUrl)
-                .WithMessage("Registration certificate URL must be a valid HTTPS URL.")
-                .When(x => x.RegistrationCertificateUrl is not null);
+            RuleFor(x => x.RegistrationCertificateObjectKey)
+                .Must(BeValidObjectKey)
+                .WithMessage("Registration certificate object key format is invalid.")
+                .When(x => x.RegistrationCertificateObjectKey is not null);
 
             RuleFor(x => x.RegistrationCertificateNumber)
                 .MaximumLength(50)
@@ -48,14 +48,14 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
 
             RuleFor(x => x.RegistrationCertExpiresAt)
                 .GreaterThan(DateOnly.FromDateTime(DateTime.UtcNow))
-                .WithMessage("Registration certificate URL was provided but the expiry date is in the past.")
-                .When(x => x.RegistrationCertificateUrl is not null && x.RegistrationCertExpiresAt is not null);
+                .WithMessage("Registration certificate object key was provided but the expiry date is in the past.")
+                .When(x => x.RegistrationCertificateObjectKey is not null && x.RegistrationCertExpiresAt is not null);
 
             // ── Group 3: Permit cert renewal ──────────────────────────────────
-            RuleFor(x => x.PermitCertificateUrl)
-                .Must(BeValidHttpsUrl)
-                .WithMessage("Permit certificate URL must be a valid HTTPS URL.")
-                .When(x => x.PermitCertificateUrl is not null);
+            RuleFor(x => x.PermitCertificateObjectKey)
+                .Must(BeValidObjectKey)
+                .WithMessage("Permit certificate object key format is invalid.")
+                .When(x => x.PermitCertificateObjectKey is not null);
 
             RuleFor(x => x.PermitCertificateNumber)
                 .MaximumLength(50)
@@ -63,8 +63,8 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
 
             RuleFor(x => x.PermitCertExpiresAt)
                 .GreaterThan(DateOnly.FromDateTime(DateTime.UtcNow))
-                .WithMessage("Permit certificate URL was provided but the expiry date is in the past.")
-                .When(x => x.PermitCertificateUrl is not null && x.PermitCertExpiresAt is not null);
+                .WithMessage("Permit certificate object key was provided but the expiry date is in the past.")
+                .When(x => x.PermitCertificateObjectKey is not null && x.PermitCertExpiresAt is not null);
 
             // ── Group 4: Registration notes ───────────────────────────────────
             RuleFor(x => x.IntendedRouteName)
@@ -87,15 +87,19 @@ namespace BusTracker.Application.Features.Vehicles.Commands.UpdateVehicle
         private static bool HaveAtLeastOneField(UpdateVehicleCommand cmd) =>
             cmd.LicensePlate is not null   || cmd.TrackerId is not null           ||
             cmd.Name is not null           || cmd.Capacity is not null            ||
-            cmd.RegistrationCertificateUrl is not null                            ||
-            cmd.PermitCertificateUrl is not null                                  ||
+            cmd.RegistrationCertificateObjectKey is not null                      ||
+            cmd.PermitCertificateObjectKey is not null                            ||
             cmd.IntendedRouteName is not null || cmd.StartStopName is not null    ||
             cmd.EndStopName is not null    || cmd.AdditionalNotes is not null     ||
             cmd.PermitNumber is not null;
 
-        private static bool BeValidHttpsUrl(string? url) =>
-            url is not null &&
-            Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
-            uri.Scheme == Uri.UriSchemeHttps;
+        private static bool BeValidObjectKey(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return false;
+            
+            return !key.Contains("..") && 
+                   !key.Contains("\\") && 
+                   !key.StartsWith("/");
+        }
     }
 }

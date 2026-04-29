@@ -35,6 +35,7 @@ namespace BusTracker.Api
             // ── Application + Infrastructure ──────────────────────────────────────
             builder.Services.AddApplicationServices();
             builder.Services.AddInfrastructureServices(builder.Configuration);
+            builder.Services.AddHttpClient();
 
             // ── SignalR ───────────────────────────────────────────────────────────
             builder.Services.AddSignalR();
@@ -108,7 +109,7 @@ namespace BusTracker.Api
             //app.MapOpenApi();
             app.UseSwagger();
             app.UseSwaggerUI();
-            //app.UseDeveloperExceptionPage();
+            app.UseDeveloperExceptionPage();
             //}
 
             // Only redirect to HTTPS in non-development environments.

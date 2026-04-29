@@ -1,10 +1,11 @@
 using BusTracker.Application.Common.Helpers;
 using BusTracker.Application.Tracking.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using BusTracker.Domain.Enums;
 
 namespace BusTracker.Api.Hubs
 {
+    [Authorize]
     public class TrackingHub : Hub
     {
         // ── SCENARIO 1: Route Bus List ─────────────────────────────────
