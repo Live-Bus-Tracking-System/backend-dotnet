@@ -109,7 +109,7 @@ namespace BusTracker.Api
             //app.MapOpenApi();
             app.UseSwagger();
             app.UseSwaggerUI();
-            app.UseDeveloperExceptionPage();
+            //app.UseDeveloperExceptionPage();
             //}
 
             // Only redirect to HTTPS in non-development environments.
