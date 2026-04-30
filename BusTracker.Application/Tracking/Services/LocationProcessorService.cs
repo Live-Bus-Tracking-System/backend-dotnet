@@ -269,7 +269,7 @@ namespace BusTracker.Application.Tracking.Services
                                 state.UpcomingStopEtas.Clear();
 
                                 // Default to 30 mins if property isn't on CachedRouteGeometry yet
-                                var cooldownMins = 30; // We'll map this from your Route entity shortly!
+                                var cooldownMins = 15; // We'll map this from your Route entity shortly!
                                 state.CooldownEndsAtUtc = DateTime.UtcNow.AddMinutes(cooldownMins);
 
                                 // WRITE-BEHIND: End the assignment safely

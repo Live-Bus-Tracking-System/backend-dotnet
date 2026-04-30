@@ -8,5 +8,6 @@ namespace BusTracker.Domain.Enums
         Suspended = 4,
         Revoked = 5,
         Expired = 6,
+        Rejected = 7
     }
 }

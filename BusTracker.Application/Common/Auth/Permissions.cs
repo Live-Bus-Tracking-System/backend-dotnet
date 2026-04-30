@@ -11,6 +11,8 @@ namespace BusTracker.Application.Common.Auth
         {
             public const string Create = "route:create";
             public const string Read = "route:read";
+            public const string Update = "route:update";
+            public const string Delete = "route:delete";
         }
 
         public static class Vehicles
@@ -43,7 +45,7 @@ namespace BusTracker.Application.Common.Auth
         public static readonly IReadOnlyList<string> SuperAdminPermissions =
         [
             Stops.Create,
-            Routes.Create, Routes.Read,
+            Routes.Create, Routes.Read, Routes.Update, Routes.Delete,
             Vehicles.Create, Vehicles.Read, Vehicles.Update, Vehicles.Delete, Vehicles.Deactivate,
             Permits.Request, Permits.Approve, Permits.Read,
             Orgs.Read, Orgs.ReadAll, Orgs.Update, Orgs.Delete, Orgs.Activate, Orgs.Suspend

@@ -23,4 +23,13 @@ namespace BusTracker.Application.Features.Routes.DTOs
         public string? FullPolyline { get; set; }
         public List<RouteStopDto> Stops { get; set; } = new();
     }
+    public class RouteSearchResultDto
+    {
+        public Guid Id { get; set; }
+        public Guid? OrganizationId { get; set; }
+        public string RouteNumber { get; set; } = string.Empty;
+        public string RouteName { get; set; } = string.Empty;
+        public bool IsPublic { get; set; }
+        public int RelevanceScore { get; set; }
+    }
 }

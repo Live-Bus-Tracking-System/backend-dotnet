@@ -8,22 +8,22 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 
-namespace BusTracker.Application.Features.Routes.Commands.CreateRoute
+namespace BusTracker.Application.Features.Routes.Commands.UpdateRoute
 {
-    public class CreateRouteCommandHandler : IRequestHandler<CreateRouteCommand, Guid>
+    public class UpdateRouteCommandHandler : IRequestHandler<UpdateRouteCommand>
     {
         private readonly IApplicationDbContext _db;
         private readonly ICurrentUserService _currentUser;
-        private readonly IValidator<CreateRouteCommand> _validator;
+        private readonly IValidator<UpdateRouteCommand> _validator;
 
-        public CreateRouteCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser, IValidator<CreateRouteCommand> validator)
+        public UpdateRouteCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser, IValidator<UpdateRouteCommand> validator)
         {
             _db = db;
             _currentUser = currentUser;
             _validator = validator;
         }
 
-        public async Task<Guid> Handle(CreateRouteCommand request, CancellationToken cancellationToken)
+        public async Task Handle(UpdateRouteCommand request, CancellationToken cancellationToken)
         {
             var validationResult = await _validator.ValidateAsync(request, cancellationToken);
             if (!validationResult.IsValid)
@@ -36,17 +36,27 @@ namespace BusTracker.Application.Features.Routes.Commands.CreateRoute
                 throw new ForbiddenException("Public Transit organizations cannot manage routes directly. Please contact a SuperAdmin.");
             }
 
-            Guid? orgId = _currentUser.IsSuperAdmin ? null : _currentUser.OrganisationId;
-            
-            var route = new Route
-            {
-                RouteNumber = request.RouteNumber,
-                RouteShapeCoordinates = request.FullPolyline,
-                OrganizationId = orgId,
-                IsPublic = request.IsPublic,
-                DataOrigin = DataOrigin.Manual
-            };
+            var route = await _db.Routes
+                .Include(r => r.RouteStops)
+                .FirstOrDefaultAsync(r => r.Id == request.RouteId && !r.IsDeleted, cancellationToken)
+                ?? throw new NotFoundException("Route", request.RouteId);
 
+            if (!_currentUser.IsSuperAdmin && route.OrganizationId != _currentUser.OrganisationId)
+            {
+                throw new ForbiddenException("You cannot update a route belonging to another organization.");
+            }
+
+            Guid? orgId = _currentUser.IsSuperAdmin ? null : _currentUser.OrganisationId;
+
+            // Update primitive fields
+            route.RouteNumber = request.RouteNumber;
+            route.RouteShapeCoordinates = request.FullPolyline;
+            route.IsPublic = request.IsPublic;
+
+            // Clear old route stops
+            route.RouteStops.Clear();
+
+            // Rebuild route stops with inline creation / deduplication
             if (request.Stops != null && request.Stops.Any())
             {
                 var orderedStops = request.Stops.OrderBy(s => s.Sequence).ToList();
@@ -108,10 +118,7 @@ namespace BusTracker.Application.Features.Routes.Commands.CreateRoute
             // Emit the event so the self-healing cache logic can invalidate/update
             route.AddDomainEvent(new RouteConfigurationChangedDomainEvent(route.Id, route.RouteNumber, route.OrganizationId));
 
-            _db.Routes.Add(route);
             await _db.SaveChangesAsync(cancellationToken);
-
-            return route.Id;
         }
     }
 }

@@ -1,16 +1,17 @@
 using FluentValidation;
 
-namespace BusTracker.Application.Features.Routes.Commands.CreateRoute
+namespace BusTracker.Application.Features.Routes.Commands.UpdateRoute
 {
-    public class CreateRouteCommandValidator : AbstractValidator<CreateRouteCommand>
+    public class UpdateRouteCommandValidator : AbstractValidator<UpdateRouteCommand>
     {
-        public CreateRouteCommandValidator()
+        public UpdateRouteCommandValidator()
         {
+            RuleFor(x => x.RouteId).NotEmpty();
+
             RuleFor(x => x.RouteNumber)
                 .NotEmpty()
                 .MaximumLength(50);
             
-            // Allow stops to be empty, but if provided, validate elements
             RuleForEach(x => x.Stops).ChildRules(stops =>
             {
                 stops.RuleFor(s => s.StopName)

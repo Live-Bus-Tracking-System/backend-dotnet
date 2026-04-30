@@ -137,6 +137,8 @@ namespace BusTracker.Infrastructure
                 .AddPolicy("stop:create", p => p.RequireClaim("permission", "stop:create"))
                 .AddPolicy("route:create", p => p.RequireClaim("permission", "route:create"))
                 .AddPolicy("route:read", p => p.RequireClaim("permission", "route:read"))
+                .AddPolicy("route:update", p => p.RequireClaim("permission", "route:update"))
+                .AddPolicy("route:delete", p => p.RequireClaim("permission", "route:delete"))
                 .AddPolicy("vehicle:create",     p => p.RequireClaim("permission", "vehicle:create"))
                 .AddPolicy("vehicle:read",       p => p.RequireClaim("permission", "vehicle:read"))
                 .AddPolicy("vehicle:update",     p => p.RequireClaim("permission", "vehicle:update"))
