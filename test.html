@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B2 Presigned URL - Frontend Reference</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --success: #28a745;
+            --danger: #dc3545;
+            --bg-light: #f8f9fa;
+            --border: #dee2e6;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #e9ecef;
+            color: #333;
+        }
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background-color: var(--bg-light);
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #004494; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        
+        /* Layout for details */
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            background: var(--bg-light);
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            font-size: 14px;
+        }
+        .detail-item span { font-weight: bold; color: var(--primary); }
+
+        /* Progress Bar Styling */
+        .progress-container {
+            margin-top: 20px;
+            display: none; /* Hidden until upload starts */
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: var(--bg-light);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--success);
+            transition: width 0.1s linear;
+        }
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+
+        /* Status Output */
+        #logArea {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background: #212529;
+            color: #20c997;
+            font-family: monospace;
+            white-space: pre-wrap;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-error { color: #ff6b6b !important; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>📡 Cloud Storage Upload Interface</h2>
+    <p style="color: #6c757d; font-size: 14px;">Frontend Reference Implementation for direct-to-bucket uploads.</p>
+    
+    <div class="form-group">
+        <label for="presignedUrl">1. Temporary Presigned URL (From Backend)</label>
+        <input type="text" id="presignedUrl" placeholder="https://s3.us-east-005.backblazeb2.com/...">
+    </div>
+
+    <div class="form-group">
+        <label for="fileInput">2. Target File</label>
+        <input type="file" id="fileInput" onchange="updatePreflightDetails()">
+    </div>
+
+    <div class="details-grid" id="preflightDetails" style="display: none;">
+        <div class="detail-item">File Name: <span id="lblFileName">-</span></div>
+        <div class="detail-item">MIME Type: <span id="lblFileType">-</span></div>
+        <div class="detail-item">Size: <span id="lblFileSize">-</span></div>
+        <div class="detail-item">Required Header: <span>Content-Type</span></div>
+    </div>
+
+    <div class="form-group" style="margin-top: 20px;">
+        <button id="btnUpload" onclick="startUpload()">Execute PUT Request</button>
+    </div>
+
+    <div class="progress-container" id="progressContainer">
+        <label>Upload Progress</label>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-stats">
+            <span id="statPercent">0%</span>
+            <span id="statSpeed">Calculating...</span>
+        </div>
+    </div>
+</div>
+
+<div class="card" id="logCard" style="display: none;">
+    <h3>🖥️ Network Log</h3>
+    <div id="logArea"></div>
+</div>
+
+<script>
+    // --- UI Update Functions ---
+    function updatePreflightDetails() {
+        const fileInput = document.getElementById('fileInput');
+        const detailsPanel = document.getElementById('preflightDetails');
+        
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            document.getElementById('lblFileName').innerText = file.name;
+            // Fallback to octet-stream if browser can't detect type, to prevent null errors
+            document.getElementById('lblFileType').innerText = file.type || 'application/octet-stream'; 
+            document.getElementById('lblFileSize').innerText = formatBytes(file.size);
+            detailsPanel.style.display = 'grid';
+        } else {
+            detailsPanel.style.display = 'none';
+        }
+    }
+
+    function formatBytes(bytes, decimals = 2) {
+        if (!+bytes) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    }
+
+    function log(message, isError = false) {
+        const logArea = document.getElementById('logArea');
+        document.getElementById('logCard').style.display = 'block';
+        logArea.style.display = 'block';
+        
+        const span = document.createElement('span');
+        span.innerText = `[${new Date().toLocaleTimeString()}] ${message}\n`;
+        if (isError) span.className = 'log-error';
+        
+        logArea.appendChild(span);
+        logArea.scrollTop = logArea.scrollHeight; // Auto-scroll to bottom
+    }
+
+    // --- Core Upload Logic ---
+    function startUpload() {
+        const urlInput = document.getElementById('presignedUrl').value.trim();
+        const fileInput = document.getElementById('fileInput');
+        const btnUpload = document.getElementById('btnUpload');
+
+        if (!urlInput || fileInput.files.length === 0) {
+            alert('Please provide both a URL and a file.');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        
+        // Setup UI for upload state
+        btnUpload.disabled = true;
+        document.getElementById('logArea').innerHTML = ''; // Clear old logs
+        document.getElementById('progressContainer').style.display = 'block';
+        document.getElementById('progressFill').style.width = '0%';
+        
+        const startTime = Date.now();
+        log('INITIALIZING UPLOAD...');
+        log(`Target Endpoint: ${urlInput.substring(0, 50)}...`);
+
+        // --- THE IMPORTANT PART FOR FRONTEND TEAMS ---
+        // We use XMLHttpRequest instead of Fetch because Fetch does not 
+        // natively support upload progress tracking yet.
+        const xhr = new XMLHttpRequest();
+
+        // 1. Listen for Progress Events
+        xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                document.getElementById('progressFill').style.width = percentComplete + '%';
+                document.getElementById('statPercent').innerText = Math.round(percentComplete) + '%';
+
+                // Calculate Speed
+                const timeElapsed = (Date.now() - startTime) / 1000; // in seconds
+                if (timeElapsed > 0) {
+                    const bytesPerSecond = event.loaded / timeElapsed;
+                    document.getElementById('statSpeed').innerText = `${formatBytes(bytesPerSecond)}/s`;
+                }
+            }
+        });
+
+        // 2. Listen for Request Completion
+        xhr.addEventListener('load', () => {
+            btnUpload.disabled = false;
+            if (xhr.status >= 200 && xhr.status < 300) {
+                log(`SUCCESS: Server responded with status ${xhr.status} ${xhr.statusText}`);
+                document.getElementById('progressFill').style.backgroundColor = '#28a745'; // Green
+            } else {
+                log(`FAILED: Server responded with status ${xhr.status} ${xhr.statusText}`, true);
+                document.getElementById('progressFill').style.backgroundColor = '#dc3545'; // Red
+                
+                // Print the raw XML error from Backblaze to help debug
+                if(xhr.responseText) {
+                    log(`Raw Response: \n${xhr.responseText}`, true);
+                }
+
+                if (xhr.status === 403) {
+                    log('HINT: A 403 means "Signature Does Not Match". Did the Content-Type header exactly match what the backend C# code expected?', true);
+                }
+            }
+        });
+
+        // 3. Listen for Network/CORS Errors
+        xhr.addEventListener('error', () => {
+            btnUpload.disabled = false;
+            document.getElementById('progressFill').style.backgroundColor = '#dc3545';
+            log('FATAL ERROR: Network request failed.', true);
+            log('HINT: This usually means a CORS policy blocked the request. Check your bucket settings.', true);
+        });
+
+        // 4. Configure and Execute the Request
+        xhr.open('PUT', urlInput, true);
+
+        // CRITICAL: The Content-Type header MUST match the file type that the 
+        // backend used to generate the presigned URL. If they differ, S3 throws a 403.
+        const contentType = file.type || 'application/octet-stream';
+        xhr.setRequestHeader('Content-Type', contentType);
+        
+        log(`Executing PUT request with Content-Type: ${contentType}`);
+        
+        // Send the raw file data
+        xhr.send(file);
+    }
+</script>
+
+</body>
+</html>

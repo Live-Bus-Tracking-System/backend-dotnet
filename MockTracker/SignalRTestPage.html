@@ -195,8 +195,9 @@
     <p class="subtitle">Scenario 3: Individual Bus Map Tracking (Vehicle_Map group)</p>
 
     <div class="config-row">
-        <input id="apiUrl" value="http://localhost:5279" placeholder="API Base URL" />
+        <input id="apiUrl" value="https://localhost:7075" placeholder="API Base URL" />
         <input id="vehicleId" value="1B65E740-3A95-4AB2-B729-3A630BDA2A37" placeholder="Vehicle ID (GUID)" />
+        <input id="accessToken" placeholder="Access Token (JWT)" />
         <button id="btnConnect" onclick="connect()">Connect</button>
         <button id="btnDisconnect" onclick="disconnect()">Disconnect</button>
     </div>
@@ -311,6 +312,7 @@
         async function connect() {
             const apiUrl = document.getElementById('apiUrl').value.trim();
             const vehicleId = document.getElementById('vehicleId').value.trim();
+            const token = document.getElementById('accessToken').value.trim();
 
             if (!vehicleId) { alert('Enter a Vehicle ID (GUID from the DB)'); return; }
 
@@ -319,7 +321,9 @@
             log(`Connecting to ${hubUrl}`, 'log-sys');
 
             connection = new signalR.HubConnectionBuilder()
-                .withUrl(hubUrl)
+                .withUrl(hubUrl, {
+                    accessTokenFactory: () => token
+                })
                 .withAutomaticReconnect()
                 .configureLogging(signalR.LogLevel.Warning)
                 .build();

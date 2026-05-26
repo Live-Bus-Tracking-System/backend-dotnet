@@ -41,10 +41,14 @@ namespace BusTracker.Api.Controllers
         [HasPermission(Permissions.Permits.Approve)]
         public async Task<IActionResult> VerifyDocument(Guid permitId, Guid documentId, [FromBody] VerifyComplianceDocumentCommand command)
         {
-            if (permitId != command.PermitId || documentId != command.DocumentId)
-                return BadRequest("Path IDs must match payload IDs.");
+            // Enrich the command using 'with' expression
+            var enrichedCommand = command with
+            {
+                PermitId = permitId,
+                DocumentId = documentId
+            };
 
-            await _sender.Send(command);
+            await _sender.Send(enrichedCommand);
             return NoContent();
         }
 

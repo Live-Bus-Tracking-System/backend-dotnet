@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>BusTracker — Full SignalR Hub Tester</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 24px;
+        }
+
+        h1 {
+            color: #58a6ff;
+            margin-bottom: 4px;
+            font-size: 20px;
+        }
+
+        .subtitle {
+            color: #6e7681;
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        input {
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            flex: 1;
+        }
+
+        button {
+            padding: 8px 18px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        #btnConnect { background: #238636; color: #fff; }
+        #btnDisconnect { background: #da3633; color: #fff; display: none; }
+        
+        .btn-action { background: #238636; color: #fff; }
+        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .disconnected { background: #21262d; color: #6e7681; }
+        .connecting { background: #3d2b00; color: #d29922; }
+        .connected { background: #0d2d0d; color: #3fb950; }
+        .error { background: #3d0000; color: #f85149; }
+
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .panel {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            transition: background-color 0.4s;
+        }
+
+        .panel h2 {
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .kv-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .kv-table td {
+            padding: 5px 8px;
+            font-size: 13px;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .kv-table td:nth-child(odd) {
+            color: #8b949e;
+            width: 120px;
+        }
+
+        .kv-table td:nth-child(even) {
+            color: #e6edf3;
+            font-weight: 600;
+            font-family: monospace;
+        }
+
+        .highlight { color: #58a6ff !important; }
+
+        #log {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            padding: 12px;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: monospace;
+            margin-top: 16px;
+        }
+
+        .log-line { padding: 2px 0; border-bottom: 1px solid #161b22; }
+        .log-in { color: #3fb950; }
+        .log-sys { color: #8b949e; }
+        .log-err { color: #f85149; }
+
+        .ping-flash { animation: flash 0.4s ease-out; }
+        @keyframes flash {
+            0% { background: #1f3d2b; }
+            100% { background: #161b22; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🚌 BusTracker — Full SignalR Hub Tester</h1>
+    <p class="subtitle">Test all 3 scenarios seamlessly from one interface.</p>
+
+    <div class="config-row">
+        <input id="apiUrl" value="https://localhost:7075" placeholder="API Base URL" />
+        <input id="accessToken" placeholder="Access Token (JWT)" />
+        <button id="btnConnect" onclick="connectHub()">Connect</button>
+        <button id="btnDisconnect" onclick="disconnectHub()">Disconnect</button>
+    </div>
+
+    <span id="badge" class="status-badge disconnected">● Disconnected</span>
+
+    <div class="panels">
+
+        <!-- Scenario 1 Panel -->
+        <div class="panel" id="pnl1">
+            <h2>🛣️ Scenario 1: Route Bus List</h2>
+            <div class="config-row">
+                <input id="s1-id" placeholder="Route ID (GUID)" />
+                <button class="btn-action" onclick="joinGroup('JoinRouteGroup', 's1-id', 'Route')">Join</button>
+                <button class="btn-secondary" onclick="leaveGroup('LeaveRouteGroup', 's1-id', 'Route')">Leave</button>
+            </div>
+            <table class="kv-table">
+                <tr><td>Route ID</td><td id="d1-routeid">—</td></tr>
+                <tr><td>Active Buses</td><td id="d1-count" class="highlight">—</td></tr>
+                <tr><td>Last Update</td><td id="d1-time">—</td></tr>
+            </table>
+        </div>
+
+        <!-- Scenario 2 Panel -->
+        <div class="panel" id="pnl2">
+            <h2>📝 Scenario 2: Text Detail</h2>
+            <div class="config-row">
+                <input id="s2-id" placeholder="Vehicle ID (GUID)" />
+                <button class="btn-action" onclick="joinGroup('JoinVehicleTextGroup', 's2-id', 'Text')">Join</button>
+                <button class="btn-secondary" onclick="leaveGroup('LeaveVehicleTextGroup', 's2-id', 'Text')">Leave</button>
+            </div>
+            <table class="kv-table">
+                <tr><td>Vehicle ID</td><td id="d2-vid">—</td></tr>
+                <tr><td>Route</td><td id="d2-route">—</td></tr>
+                <tr><td>Next Stop</td><td id="d2-nextstop" class="highlight">—</td></tr>
+                <tr><td>Next ETA</td><td id="d2-eta">—</td></tr>
+            </table>
+        </div>
+
+        <!-- Scenario 3 Panel -->
+        <div class="panel" id="pnl3" style="grid-column: span 2;">
+            <h2>📍 Scenario 3: Live Map Tracking</h2>
+            <div class="config-row">
+                <input id="s3-id" placeholder="Vehicle ID (GUID)" value="1B65E740-3A95-4AB2-B729-3A630BDA2A37" />
+                <button class="btn-action" onclick="joinGroup('JoinVehicleMapGroup', 's3-id', 'Map')">Join</button>
+                <button class="btn-secondary" onclick="leaveGroup('LeaveVehicleMapGroup', 's3-id', 'Map')">Leave</button>
+            </div>
+            <table class="kv-table">
+                <tr>
+                    <td>Vehicle</td><td id="d3-name">—</td>
+                    <td>Plate</td><td id="d3-plate">—</td>
+                </tr>
+                <tr>
+                    <td>Route</td><td id="d3-route">—</td>
+                    <td>Direction</td><td id="d3-dir">—</td>
+                </tr>
+                <tr>
+                    <td>Latitude</td><td id="d3-lat" class="highlight">—</td>
+                    <td>Longitude</td><td id="d3-lon" class="highlight">—</td>
+                </tr>
+                <tr>
+                    <td>Heading</td><td id="d3-heading">—</td>
+                    <td>Speed</td><td id="d3-speed">—</td>
+                </tr>
+                <tr>
+                    <td>Next Stop</td><td id="d3-nextstop">—</td>
+                    <td>Next ETA</td><td id="d3-eta">—</td>
+                </tr>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- Event log -->
+    <div id="log"></div>
+
+    <script>
+        let connection = null;
+
+        function log(msg, cls = 'log-sys') {
+            const el = document.getElementById('log');
+            const ts = new Date().toLocaleTimeString();
+            el.innerHTML = `<div class="log-line ${cls}">[${ts}] ${msg}</div>` + el.innerHTML;
+        }
+
+        function setStatus(text, cls) {
+            const b = document.getElementById('badge');
+            b.textContent = '● ' + text;
+            b.className = 'status-badge ' + cls;
+        }
+
+        function set(id, val) {
+            document.getElementById(id).textContent = val ?? '—';
+        }
+
+        function flashPanel(id) {
+            const panel = document.getElementById(id);
+            panel.classList.remove('ping-flash');
+            void panel.offsetWidth; // Trigger reflow
+            panel.classList.add('ping-flash');
+        }
+
+        async function connectHub() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const token = document.getElementById('accessToken').value.trim();
+
+            const hubUrl = `${apiUrl}/hubs/tracking`;
+            setStatus('Connecting…', 'connecting');
+            log(`Connecting to ${hubUrl}`, 'log-sys');
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl, { accessTokenFactory: () => token })
+                .withAutomaticReconnect()
+                .configureLogging(signalR.LogLevel.Warning)
+                .build();
+
+            setupListeners();
+
+            try {
+                await connection.start();
+                setStatus('Connected', 'connected');
+                document.getElementById('btnConnect').style.display = 'none';
+                document.getElementById('btnDisconnect').style.display = 'inline-block';
+                log(`Connected! ConnectionId: ${connection.connectionId}`, 'log-sys');
+            } catch (err) {
+                setStatus('Error', 'error');
+                log(`Connection failed: ${err}`, 'log-err');
+            }
+        }
+
+        async function disconnectHub() {
+            if (connection) {
+                await connection.stop();
+                connection = null;
+                setStatus('Disconnected', 'disconnected');
+                document.getElementById('btnConnect').style.display = 'inline-block';
+                document.getElementById('btnDisconnect').style.display = 'none';
+                log('Disconnected.', 'log-sys');
+            }
+        }
+
+        function setupListeners() {
+            // SCENARIO 1
+            connection.on('ReceiveRouteUpdate', (dto) => {
+                flashPanel('pnl1');
+                set('d1-routeid', dto.routeId);
+                set('d1-count', dto.activeBuses ? dto.activeBuses.length : 0);
+                set('d1-time', new Date().toLocaleTimeString());
+                log(`[S1 RouteUpdate] Active Buses: ${dto.activeBuses ? dto.activeBuses.length : 0}`, 'log-in');
+            });
+
+            // SCENARIO 2
+            connection.on('ReceiveVehicleTextUpdate', (dto) => {
+                flashPanel('pnl2');
+                set('d2-vid', dto.vehicleId);
+                set('d2-route', dto.routeName);
+                set('d2-nextstop', dto.nextStopName);
+                set('d2-eta', dto.nextStopEtaUtc ? new Date(dto.nextStopEtaUtc).toLocaleTimeString() : '—');
+                log(`[S2 TextUpdate] Vehicle ${dto.vehicleId} | Next: ${dto.nextStopName}`, 'log-in');
+            });
+
+            // SCENARIO 3
+            connection.on('ReceiveVehicleMapUpdate', (dto) => {
+                flashPanel('pnl3');
+                set('d3-name', dto.vehicleName);
+                set('d3-plate', dto.licensePlate);
+                set('d3-route', dto.routeName);
+                set('d3-dir', dto.direction === 0 ? 'Outbound' : 'Inbound');
+                set('d3-lat', dto.latitude?.toFixed(6));
+                set('d3-lon', dto.longitude?.toFixed(6));
+                set('d3-heading', dto.heading != null ? `${dto.heading.toFixed(1)}°` : '—');
+                set('d3-speed', dto.speedKph != null ? `${dto.speedKph} km/h` : '—');
+                set('d3-nextstop', dto.nextStopName);
+                set('d3-eta', dto.nextStopEtaUtc ? new Date(dto.nextStopEtaUtc).toLocaleTimeString() : '—');
+                log(`[S3 MapUpdate] ${dto.vehicleName} | Lat:${dto.latitude?.toFixed(5)} Lon:${dto.longitude?.toFixed(5)} | Speed:${dto.speedKph} km/h`, 'log-in');
+            });
+
+            connection.onreconnecting(() => setStatus('Reconnecting…', 'connecting'));
+            connection.onreconnected(() => setStatus('Connected', 'connected'));
+            connection.onclose(() => disconnectHub());
+        }
+
+        async function joinGroup(methodName, inputId, type) {
+            if (!connection || connection.state !== signalR.HubConnectionState.Connected) return alert("Connect first!");
+            const id = document.getElementById(inputId).value.trim();
+            if (!id) return alert("Please enter the ID (GUID) first!");
+
+            try {
+                await connection.invoke(methodName, id);
+                log(`✅ Joined ${type} Group for ID: ${id}`, 'log-sys');
+            } catch (err) {
+                log(`Error joining ${type} group: ${err}`, 'log-err');
+            }
+        }
+
+        async function leaveGroup(methodName, inputId, type) {
+            if (!connection || connection.state !== signalR.HubConnectionState.Connected) return alert("Connect first!");
+            const id = document.getElementById(inputId).value.trim();
+            if (!id) return alert("Please enter the ID (GUID) first!");
+
+            try {
+                await connection.invoke(methodName, id);
+                log(`❌ Left ${type} Group for ID: ${id}`, 'log-sys');
+            } catch (err) {
+                log(`Error leaving ${type} group: ${err}`, 'log-err');
+            }
+        }
+    </script>
+</body>
+
+</html>

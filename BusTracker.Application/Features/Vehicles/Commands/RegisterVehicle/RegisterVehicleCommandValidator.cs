@@ -36,7 +36,7 @@ namespace BusTracker.Application.Features.Vehicles.Commands.RegisterVehicle
                 .Must(BeValidObjectKey).WithMessage("Permit certificate object key format is invalid.");
 
             RuleFor(x => x.RegistrationCertificateNumber)
-                .MaximumLength(50).WithMessage("")
+                .MaximumLength(50).WithMessage("registration certificate number is required.")
                 .When(x => x.RegistrationCertificateNumber is not null);
 
             RuleFor(x => x.PermitCertificateNumber)
